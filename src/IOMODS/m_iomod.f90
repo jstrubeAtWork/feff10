@@ -2236,13 +2236,17 @@ CONTAINS
     HeaderData = .FALSE.
     IF(PRESENT(WriteDataInHeader)) HeaderData = WriteDataInHeader
 
-    ! Default before the optional-argument guard below. FlType is written into
-    ! the '#DF#' header line and iFlType selects the data format, but both were
-    ! only ever assigned inside that guard, so a caller omitting FileType --
-    ! e.g. Write2D('gg.bin',..) in FMS/fmstot.f90 -- wrote uninitialized stack
-    ! bytes into the header, making the file differ from run to run. Worse, had
-    ! the garbage iFlType matched neither itxt nor ipad, the data loop below
-    ! would have silently written NOTHING at all.
+    ! Default before the optional-argument guard below. FlType goes into the
+    ! '#DF#' header line and iFlType selects the data format, but both were only
+    ! ever assigned inside that guard, which has no ELSE. A caller omitting
+    ! FileType -- e.g. Write2D('gg.bin',..) in FMS/fmstot.f90 -- therefore read
+    ! both uninitialized. Depending on what was left on the stack that meant
+    ! garbage in the header, data silently written in PAD instead of TXT (Read2D
+    ! always defaults to TXT and never parses '#DF#' back, so the round trip
+    ! fails), or -- if iFlType matched neither itxt nor ipad -- no data written
+    ! at all behind a valid-looking header.
+    ! TXT is the right default: it matches iFileTypeDefault, which every Read*2D
+    ! routine already uses when FileType is absent.
     FlType = 'TXT'
     iFlType = itxt
     IF(PRESENT(FileType)) THEN

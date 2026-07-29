@@ -91,7 +91,14 @@ SUBROUTINE AtomicPotentials
   allocate(kappa(41,0:nphx+1), iorb(-5:4,0:nphx+1), norb(0:nphx+1),nqn(41,0:nphx+1))
   CALL rixs_read
 
-  
+  ! feffjl Phase 1: start from a clean ATOM blank COMMON, as a fresh `atomic`
+  ! process would.  See ATOM/reset_atom_common.f90 -- scfdat copies dgc/dpc
+  ! columns above norb straight out of COMMON, so without this run 2 inherits
+  ! run 1's high-orbital wavefunctions.  Must be before the first scfdat call and
+  ! only once per run: the accumulation across this run's per-potential scfdat
+  ! calls is stock behaviour.
+  CALL reset_atom_common
+
   ! loop over edges to make edges.dat for rixs calculations.
   OPEN(UNIT = 17, FILE = 'edges.dat', STATUS = 'REPLACE')
   DO iEdge = 1, RixsI%nEdges
@@ -373,6 +380,13 @@ SUBROUTINE AtomicPotentials
         WRITE(17,*) emu, Mkkp, gamch/hart
      END IF
   END DO
+  ! feffjl Phase 1: unit 17 was left open (harmless when apot ran in its own
+  ! process, which closed it on exit).  In-process, the next feff_run_exafs hits
+  ! "incorrect STATUS= specifier value for connected file" on the OPEN above,
+  ! since STATUS='REPLACE' is illegal for an already-connected unit.  The file is
+  ! complete here, and REPLACE truncates it on the next run, so closing gives a
+  ! repeat run the same edges.dat a fresh process would produce.
+  CLOSE(UNIT = 17)
 
   ! Deallocate local variables
   deallocate(edens, edenvl,vclap)

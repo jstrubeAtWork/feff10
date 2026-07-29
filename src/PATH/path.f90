@@ -6,9 +6,13 @@
 !
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-!     sub-program exchange
-      program  ffmod4
-!     subroutine ffmod4
+!
+! feffjl Phase 1: the body of this stage now lives in subroutine feff_path() so it
+! can be called in-process by feff_run_exafs (HEADERS/feff_exafs.f90) -- which is
+! what the original "sub-program exchange / subroutine ffmod4" comments intended.
+! PATH/path_main.f90 is the thin shim for the standalone `path` executable.
+!
+      subroutine feff_path
 
 !     makes paths list using cluster geometry and phase shifts
 !     written by a.ankudinov 2000 using earlier subroutines
@@ -104,7 +108,6 @@
       call par_end
       if(master)call WipeErrorfileAtFinish
 !     sub-program exchange
-      stop
-!     return
+      return
 
-      end
+      end subroutine feff_path

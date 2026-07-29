@@ -30,10 +30,15 @@ module xstruc
 contains
 
   subroutine init_xstruc(nclusx)
-
+    ! Idempotent: safe to call more than once in a process (in-process driver,
+    ! feff_run_exafs).  A repeat call reallocates, since nclusx can differ
+    ! between runs.
     implicit none
     integer, intent(in) :: nclusx
 
+    if (allocated(xphi)) deallocate(xphi)
+    if (allocated(xrat)) deallocate(xrat)
+    if (allocated(iphx)) deallocate(iphx)
     allocate(xphi(nclusx,nclusx))
     allocate(xrat(3,nclusx))
     allocate(iphx(nclusx))
@@ -43,7 +48,9 @@ contains
   subroutine kill_xstruc
     implicit none
 
-    deallocate(xphi,xrat,iphx)
+    if (allocated(xphi)) deallocate(xphi)
+    if (allocated(xrat)) deallocate(xrat)
+    if (allocated(iphx)) deallocate(iphx)
   end subroutine kill_xstruc
 
 end module xstruc

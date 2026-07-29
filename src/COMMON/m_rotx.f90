@@ -45,19 +45,34 @@ module rotx
 contains
 
   subroutine init_rotx(lx,nclusx)
+    ! Idempotent: safe to call more than once in a process (in-process driver,
+    ! feff_run_exafs).  A repeat call reallocates, since lx/nclusx can differ
+    ! between runs.
     implicit none
     integer, intent(in) :: lx, nclusx
 
+    if (allocated(drix))   deallocate(drix)
+    if (allocated(drisav)) deallocate(drisav)
     allocate(drix(-lx:lx,-lx:lx,0:lx,0:1,nclusx,nclusx))
     allocate(drisav(-lx:lx,-lx:lx,0:lx,jsavx))
     drix = 0.d0
     drisav = 0.d0
+    ! Fixed-size save state must be reset too, else a second run in the same
+    ! process inherits the first run's rotation-matrix cache.  Same semantics as
+    ! rotint (FMS/xstaff.f90): jbmagk marks an unused slot, not 0.0, which is a
+    ! legitimate beta.  rotint still does this itself; this only covers the case
+    ! where a run never reaches xprep/yprep.
+    jsav = 0
+    ldsav = 0
+    mdsav = 0
+    betsav = jbmagk
   end subroutine init_rotx
 
   subroutine kill_rotx
     implicit none
 
-   deallocate(drix,drisav)
+   if (allocated(drix))   deallocate(drix)
+   if (allocated(drisav)) deallocate(drisav)
  end subroutine kill_rotx
 
 

@@ -5,7 +5,12 @@
 ! $Date: 2012/05/21 23:45:17 $
 !
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  program  ffmod2
+!
+! feffjl Phase 1: the body of this stage now lives in subroutine feff_xsph() so
+! it can be called in-process by feff_run_exafs (HEADERS/feff_exafs.f90).
+! XSPH/xsph_main.f90 is the thin shim for the standalone `xsph` executable.
+!
+  subroutine feff_xsph
 
 ! cross-section and phase shifts calculations
 ! coded by a.ankudinov 2000 ; modules added KJ 2009
@@ -54,9 +59,9 @@
   call par_end
 
   if(master)call WipeErrorfileAtFinish
-  stop
+  return
 
-  end
+  end subroutine feff_xsph
 
 
 

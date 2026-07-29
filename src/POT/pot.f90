@@ -5,7 +5,13 @@
 ! $Date: 2012/11/29 23:20:18 $
 !
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-      program ffmod1
+!
+! feffjl Phase 1: the body of this stage now lives in subroutine feff_pot() so
+! it can be called in-process by feff_run_exafs (HEADERS/feff_exafs.f90).
+! The program below is a thin shim that keeps the standalone `pot` executable
+! working exactly as before.
+!
+      subroutine feff_pot
 
 !     calculate  el. density and potential given atomic positions for
 !     cluster atoms or other similar information
@@ -86,7 +92,6 @@
       call par_end
 
       if(master)call WipeErrorfileAtFinish
-      stop
+      return
 
-      end
-
+      end subroutine feff_pot

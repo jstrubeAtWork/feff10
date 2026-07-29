@@ -120,6 +120,18 @@
 		contains
 
         subroutine atoms_allocate
+!           feffjl Phase 1: resize when nphx has changed since the last call.
+!           rdinp runs with nphx at the hard limit (set_dimensions_for_rdinp)
+!           because the real value is not known until feff.inp is parsed; later
+!           stages call init_dimensions and get the true, usually much smaller,
+!           nphu.  In separate processes each stage allocated for itself; the
+!           plain `.not.allocated` guard instead made every in-process stage
+!           inherit rdinp's oversized arrays, which showed up as e.g. iphovr
+!           written to apot.bin as 8x32 rather than 8x2.  See the sibling
+!           *_allocate routines in this file for the same fix.
+            if(allocated(iatph)) then
+               if(size(iatph).ne.nphx+1) deallocate(iatph)
+            endif
             if(.not.allocated(iatph)) allocate(iatph(0:nphx))
         end subroutine atoms_allocate
 
@@ -132,6 +144,15 @@
             real*8 rdum1(3)
             integer idum1,idum2
             call atoms_allocate
+!           feffjl Phase 1: iphat, rat and ibounc are fixed-size (natx) module
+!           arrays, but the loop below only fills entries 1..nat.  A fresh process
+!           supplies zeros past nat; in-process, run 2 keeps run 1's tail, and
+!           apot.bin -- which dumps iphat(natx)/rat(3,nat) whole -- then differs
+!           from the stock output (Cu's 74 extra atoms showing up after GeCl_4's
+!           5).  Zero them so a repeat run starts as a fresh process would.
+            iphat(:) = 0
+            ibounc(:) = 0
+            rat(:,:) = 0.d0
 			open (file=filename, unit=3, status='old')
 !			read header
 			nhead = nheadx
@@ -569,6 +590,17 @@
 
         subroutine potential_allocate
         !call wlog('in potential_allocate')
+!           feffjl Phase 1: resize when nphx changed -- see atoms_allocate above.
+            if(allocated(iz)) then
+               if(size(iz).ne.nphx+1) deallocate(iz)
+            endif
+            if(allocated(lmaxsc)) then
+               if(size(lmaxsc).ne.nphx+1) deallocate(lmaxsc)
+            endif
+            if(allocated(xnatph)) then
+               if(size(xnatph).ne.nphx+1) deallocate(xnatph, folp, spinph,    &
+                 xion, novr, iphovr, nnovr, rovr)
+            endif
             if(.not.allocated(iz))  allocate(iz(0:nphx))
             if(.not.allocated(lmaxsc)) allocate(lmaxsc(0:nphx))
             if(.not.allocated(xnatph)) allocate(xnatph(0:nphx), folp(0:nphx), spinph(0:nphx), &
@@ -748,6 +780,10 @@
 
         subroutine ldos_allocate
         !call wlog('in ldos_allocate')
+!           feffjl Phase 1: resize when nphx changed -- see atoms_allocate.
+            if (allocated(lmaxph)) then
+               if (size(lmaxph).ne.nphx+1) deallocate(lmaxph)
+            endif
             if (.not.allocated(lmaxph)) allocate(lmaxph(0:nphx))
         end subroutine ldos_allocate
 
@@ -1055,6 +1091,10 @@
         CONTAINS
 
            subroutine opcons_allocate
+!              feffjl Phase 1: resize when nphx changed -- see atoms_allocate.
+               if(allocated(NumDens)) then
+                  if(size(NumDens).ne.nphx+1) deallocate(NumDens)
+               endif
                if(.not.allocated(NumDens)) allocate(NumDens(0:nphx))
            end subroutine opcons_allocate
 
@@ -1122,6 +1162,10 @@
 		contains
 
         subroutine xsph_allocate
+!          feffjl Phase 1: resize when nphx changed -- see atoms_allocate.
+           if(allocated(potlbl)) then
+              if(size(potlbl).ne.nphx+1) deallocate(potlbl)
+           endif
            if(.not.allocated(potlbl)) allocate (potlbl(0:nphx))
         end subroutine xsph_allocate
 

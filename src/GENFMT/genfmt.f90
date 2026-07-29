@@ -5,9 +5,13 @@
 ! $Date: 2012/05/15 21:29:59 $
 !
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!     sub-program exchange
-      program ffmod5
-!     subroutine ffmod5
+!
+! feffjl Phase 1: the body of this stage now lives in subroutine feff_genfmt() so
+! it can be called in-process by feff_run_exafs (HEADERS/feff_exafs.f90) -- which
+! is what the original "sub-program exchange / subroutine ffmod5" comments
+! intended.  GENFMT/genfmt_main.f90 is the shim for the standalone executable.
+!
+      subroutine feff_genfmt
 
 !     scattering F-matrix multiplication for each MS path
 !     written by a.ankudinov 2000, using subroutines
@@ -55,7 +59,6 @@
       call par_end
       if(master)call WipeErrorfileAtFinish
 !     sub-program exchange
-      stop
-!     return
+      return
 
-      end
+      end subroutine feff_genfmt

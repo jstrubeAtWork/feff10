@@ -2,13 +2,15 @@
 # Define suffixes to look for
 .SUFFIXES: .f .f90 .o .mod
 
-SRCDIRS  =ATOM BAND COMMON COMPTON CRPA DEBYE DMDW EELS EELSMDFF ERRORMODS EXCH FF2X FMS FOVRG FULLSPECTRUM GENFMT IOMODS KSPACE LDOS MATH MKGTR MODS PAR PATH POT RDINP RHORRP RIXS SCREEN SELF SFCONV TDLDA XSPH INPGEN 
+SRCDIRS  =ATOM BAND COMMON COMPTON CRPA DEBYE DMDW EELS EELSMDFF ERRORMODS EXCH FF2X FMS FOVRG FULLSPECTRUM GENFMT HEADERS IOMODS KSPACE LDOS MATH MKGTR MODS PAR PATH POT RDINP RHORRP RIXS SCREEN SELF SFCONV TDLDA XSPH INPGEN
 INCLUDEFLAGS=$(SRCDIRS:%=-I../%)
 
 # Modified by FDV
 # Removing band target until the module becomes more stable
 #EXECUTABLES =atomic band compton crpa dmdw dym2feffinp eels ff2x fms fullspectrum genfmt ldos mkgtr opconsat path pot rdinp rhorrp rixs screen sfconv xsph 
-EXECUTABLES =atomic compton crpa dmdw dym2feffinp eels ff2x fms fullspectrum genfmt ldos mkgtr opconsat path pot rdinp rhorrp rixs screen sfconv xsph 
+# feffjl Phase 1: feff_exafs is the in-process EXAFS driver (one process runs
+# rdinp..ff2x); the other entries are the unchanged standalone stages.
+EXECUTABLES =atomic compton crpa dmdw dym2feffinp eels ff2x fms fullspectrum genfmt ldos mkgtr opconsat path pot rdinp rhorrp rixs screen sfconv xsph feff_exafs
 EXECDIR=../bin/Seq
 
 $(shell [ -e Compiler.mk ] || cp Compiler.mk.default Compiler.mk)
@@ -75,6 +77,13 @@ include DEP/ff2x$(DEPTYPE).mk
 # Object files needed by FF2X/ff2x.f90.
 ff2x_OBJ = ${ff2xSRC:.f90=.o}
 ff2x_MODULES =${ff2x_MODULESRC:.f90=.o}
+
+# feffjl Phase 1: in-process EXAFS driver (HEADERS/feff_exafs_main.f90).
+# Source files needed by HEADERS/feff_exafs.f90.
+include DEP/feff_exafs$(DEPTYPE).mk
+# Object files needed by HEADERS/feff_exafs.f90.
+feff_exafs_OBJ = ${feff_exafsSRC:.f90=.o}
+feff_exafs_MODULES =${feff_exafs_MODULESRC:.f90=.o}
 
 # Source files needed by FMS/fms.f90.
 include DEP/fms$(DEPTYPE).mk
@@ -279,11 +288,21 @@ $(EXECDIR)/eels: $(eels_MODULES) $(eels_OBJ)
 ###                                  ff2x                                             ###
 #####################################################################################################
 ff2x:$(EXECDIR)/ff2x
-$(EXECDIR)/ff2x: $(ff2x_MODULES) $(ff2x_OBJ) 
+$(EXECDIR)/ff2x: $(ff2x_MODULES) $(ff2x_OBJ)
 	$(F90) $(FLAGS) $(INCLUDEFLAGS) -o $@ $(ff2x_MODULES) $(ff2x_OBJ) $(LDFLAGS)
 	@echo -e $(F90) $(FLAGS) INCLUDEFLAGS -o $@ $(ff2x_MODULES) $(ff2x_OBJ) $(LDFLAGS)
 #####################################################################################################
 ###                              END ff2x                                             ###
+#####################################################################################################
+#####################################################################################################
+###                                  feff_exafs                                             ###
+#####################################################################################################
+feff_exafs:$(EXECDIR)/feff_exafs
+$(EXECDIR)/feff_exafs: $(feff_exafs_MODULES) $(feff_exafs_OBJ)
+	$(F90) $(FLAGS) $(INCLUDEFLAGS) -o $@ $(feff_exafs_MODULES) $(feff_exafs_OBJ) $(LDFLAGS)
+	@echo -e $(F90) $(FLAGS) INCLUDEFLAGS -o $@ $(feff_exafs_MODULES) $(feff_exafs_OBJ) $(LDFLAGS)
+#####################################################################################################
+###                              END feff_exafs                                             ###
 #####################################################################################################
 
 #####################################################################################################

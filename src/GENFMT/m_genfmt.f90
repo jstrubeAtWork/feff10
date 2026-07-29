@@ -48,7 +48,10 @@
 !     text from paths.dat, potential labels
       contains
          subroutine init_str
+            ! Idempotent: safe to call more than once in a process (in-process
+            ! driver, feff_run_exafs).
             implicit none
+            if (allocated(potlbl)) deallocate(potlbl)
             allocate(potlbl(0:nphx))
          end subroutine init_str
       end module str
@@ -83,7 +86,12 @@
       deg, rnrmav, xmu, edge
       contains
          subroutine init_pdata
+            ! Idempotent: safe to call more than once in a process (in-process
+            ! driver, feff_run_exafs).
             implicit none
+            if (allocated(ph))   deallocate(ph)
+            if (allocated(lmax)) deallocate(lmax)
+            if (allocated(iz))   deallocate(iz)
             allocate(ph(nex,-ltot:ltot,0:nphx),lmax(nex,0:nphx),iz(0:nphx))
          end subroutine init_pdata
       end module pdata

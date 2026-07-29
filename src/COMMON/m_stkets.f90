@@ -24,12 +24,16 @@ module stkets
 contains
 
     subroutine init_stkets(istatx)
+    ! Idempotent: safe to call more than once in a process (in-process driver,
+    ! feff_run_exafs).  A repeat call reallocates, since istatx can differ
+    ! between runs.
     integer,intent(in) :: istatx
+    if (allocated(lrstat)) deallocate(lrstat)
     allocate(lrstat(4,istatx))
     end subroutine init_stkets
 
     subroutine kill_stkets
-    deallocate(lrstat)
+    if (allocated(lrstat)) deallocate(lrstat)
     end subroutine kill_stkets
 
     subroutine getkts(nsp, nat, npot, iphx, lipotx, i0)

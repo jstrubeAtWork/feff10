@@ -5,9 +5,18 @@
 ! $Date: 2012/05/15 21:29:59 $
 !
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!     sub-program exchange
-      program ffmod6
-!     subroutine ffmod6 (iabs)
+!
+! feffjl Phase 1: the body of this stage now lives in subroutine feff_ff2x() so it
+! can be called in-process by feff_run_exafs (HEADERS/feff_exafs.f90).
+! FF2X/ff2x_main.f90 is the thin shim for the standalone `ff2x` executable.
+!
+! Note: the stale HEADERS/feff.f90 called this as `ffmod6(iabs)`, i.e. with the
+! absorber index as an argument, for the nabs>1 configurational-average loop.
+! The standalone executable has always hardcoded iabs=1, so feff_ff2x keeps it
+! internal -- matching current behaviour rather than the abandoned intent.
+! Configurational averaging (ffsort/nabs>1) is out of scope for Phase 1.
+!
+      subroutine feff_ff2x
 
 !     final calculations for various spectroscopies
 !     (EXAFS, XANES, FPRIME, DANES, XES)
@@ -81,7 +90,6 @@
       call par_end
 	  if(master)call WipeErrorfileAtFinish
 !     sub-program exchange
-      stop  
-!     return
+      return
 
-      end
+      end subroutine feff_ff2x

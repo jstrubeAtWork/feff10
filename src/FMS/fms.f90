@@ -5,7 +5,12 @@
 ! $Date: 2012/05/15 21:29:59 $
 !
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-program ffmod3
+!
+! feffjl Phase 1: the body of this stage now lives in subroutine feff_fms() so it
+! can be called in-process by feff_run_exafs (HEADERS/feff_exafs.f90).
+! FMS/fms_main.f90 is the thin shim for the standalone `fms` executable.
+!
+subroutine feff_fms
   ! Full multiple scattering code (inversion of big matrix)
   !
   ! INPUT:  geom.inp, global.inp and mod3.inp
@@ -93,5 +98,5 @@ program ffmod3
 
   call par_end
   if(master) call WipeErrorfileAtFinish
-  stop
-end program ffmod3
+  return
+end subroutine feff_fms

@@ -17,9 +17,23 @@ module broydn_workspace
 
       contains
 	    subroutine broydn_workspace_init
+	       ! Idempotent: safe to call more than once in a process (in-process
+	       ! driver, feff_run_exafs).  A repeat call reallocates, since nscmt/nphu
+	       ! can differ between runs.
 	       use potential_inp,only:nbr=>nscmt
 	       use DimsMod,only: nphx=>nphu
+		   call broydn_workspace_free
 		   allocate(cmi(nbr,nbr), frho(251,0:nphx,nbr), urho(251,0:nphx,nbr), xnorm(nbr), wt(251), rhoold(251,0:nphx), ri05(251))
 		end subroutine broydn_workspace_init
+
+	    subroutine broydn_workspace_free
+		   if (allocated(cmi))    deallocate(cmi)
+		   if (allocated(frho))   deallocate(frho)
+		   if (allocated(urho))   deallocate(urho)
+		   if (allocated(xnorm))  deallocate(xnorm)
+		   if (allocated(wt))     deallocate(wt)
+		   if (allocated(rhoold)) deallocate(rhoold)
+		   if (allocated(ri05))   deallocate(ri05)
+		end subroutine broydn_workspace_free
 
 end module broydn_workspace

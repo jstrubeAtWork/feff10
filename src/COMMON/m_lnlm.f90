@@ -26,10 +26,14 @@ module lnlm
 contains
 
   subroutine init_lnlm(lx,nclusx)
-
+    ! Idempotent: safe to call more than once in a process (in-process driver,
+    ! feff_run_exafs).  A repeat call reallocates, since lx/nclusx can differ
+    ! between runs.
     implicit none
     integer, intent(in) :: lx, nclusx
 
+    if (allocated(xnlm))   deallocate(xnlm)
+    if (allocated(sigsqr)) deallocate(sigsqr)
     allocate(xnlm(0:lx,0:lx))
     allocate(sigsqr(nclusx,nclusx))
   end subroutine init_lnlm
@@ -37,7 +41,8 @@ contains
   subroutine kill_lnlm
     implicit none
 
-    deallocate(xnlm,sigsqr)
+    if (allocated(xnlm))   deallocate(xnlm)
+    if (allocated(sigsqr)) deallocate(sigsqr)
   end subroutine kill_lnlm
 
 end module lnlm

@@ -2443,6 +2443,29 @@ return
 end subroutine InitConfig
 
 
+SUBROUTINE ResetConfig
+  ! feffjl Phase 1: drop the memoized configuration table so the next InitConfig
+  ! rebuilds it.
+  !
+  ! InitConfig returns early once iocc is allocated -- correct within one run
+  ! (getorb calls it repeatedly), wrong across runs in one process: iocc/ival/ispn
+  ! are indexed by potential index and filled from iz(iph)/nph, so run 2 would
+  ! silently inherit run 1's per-potential occupations.  With mismatched elements
+  ! the electron count check in ATOM/inmuat.f90 then calls par_stop.
+  !
+  ! Not called from InitConfig or getorb: those run many times per run, and this
+  ! must fire exactly once per run.  feff_rdinp calls it after reading feff.inp,
+  ! which is the point where nph/iz/configtype have just been set.
+  implicit none
+
+  if (allocated(iocc)) deallocate(iocc)
+  if (allocated(ival)) deallocate(ival)
+  if (allocated(ispn)) deallocate(ispn)
+
+return
+end subroutine ResetConfig
+
+
 SUBROUTINE ParseConfig(iunit)
 ! Read a 'shorthand' line specifying the configuration, and make sense of it :-)
 ! A line may look like this :

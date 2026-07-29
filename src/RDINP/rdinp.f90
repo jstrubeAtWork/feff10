@@ -5,9 +5,22 @@
 ! $Date: 2013/01/27 23:17:50 $
 !
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!     sub-program exchange point
-      program rdinp
-!     subroutine rdinp (nabs,nss,ceels)
+!
+! feffjl Phase 1: the body of this stage now lives in subroutine feff_rdinp() so
+! it can be called in-process by feff_run_exafs (HEADERS/feff_exafs.f90).
+! RDINP/rdinp_main.f90 is the thin shim for the standalone `rdinp` executable.
+!
+! The abandoned signature in the comment below was `rdinp(nabs,nss,ceels)`.
+! nabs/nss/ceels are locals here and are only consumed by the internal ffsort
+! call, so feff_rdinp takes no arguments; configurational averaging (nabs>1) is
+! out of scope for Phase 1.
+!
+! Caveat: the ~8 fatal input-validation `stop`s in the body below are deliberately
+! NOT converted to `return`.  They abort on malformed feff.inp; returning normally
+! would let the driver proceed with invalid input.  Turning them into status codes
+! belongs to Phase 3 (C ABI), where there is somewhere to report the error to.
+!
+      subroutine feff_rdinp
 
 !    reads 'feff.inp' file and writes several files in special format
 !    ready for the use by other modules: geom.dat, global.dat,
@@ -44,6 +57,7 @@
     use crpa_inp
     use band_inp, emin_band=>emin,emax_band=>emax,estep_band=>estep,nkp_band=>nkp  !avoid contamination between modules
     use errorfile
+    use config, only: ResetConfig   ! feffjl Phase 1: per-run config-table reset
     use hubbard_inp
     use fullspectrum_inp
 
@@ -2383,6 +2397,13 @@
       nttl = ntitle
       ! Check RIXS values for nEdges.
       IF(RixsI%m_run.EQ.0) RixsI%nEdges = 1
+!     feffjl Phase 1: nph, iz and configtype for THIS run are now final, so drop
+!     any electron-configuration table memoized by a previous feff_run_exafs in
+!     this process.  See COMMON/m_config.f90::ResetConfig -- without this, run 2
+!     reuses run 1's per-potential occupations and ATOM/inmuat.f90 par_stops on
+!     the electron count when the elements differ.  No-op on the first run.
+      call ResetConfig
+
 !     write atoms.dat, global.inp, modN.inp and ldos.inp
       call wrtall
 
@@ -2540,8 +2561,7 @@
 
 !     sub-program exchange
       if(master)call WipeErrorfileAtFinish
-      stop
-!     return
+      return
 
 !     normal end of rdinp
 
@@ -2551,7 +2571,7 @@
       call wlog(slog)
       call par_stop('RDINP fatal error.')
 
-      end program rdinp
+      end subroutine feff_rdinp
 
       subroutine phstop (iph,line)
     use dimsmod, only: nphxhardlimit

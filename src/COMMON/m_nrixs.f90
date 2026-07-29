@@ -44,6 +44,17 @@
 			kfinmax=2*(2*abs(kinit)+1)*(abs(le2)+1)*(jinit+1)
 !          END of getsizes routine
 
+!           feffjl Phase 1a: idempotent.  nrixs_init is called by xsph, fms, path,
+!           genfmt AND ff2x -- harmless when each is its own process, but an abort
+!           on the second caller inside feff_run_exafs.  Deallocate first rather
+!           than guarding with .not.allocated: kfinmax is recomputed above from
+!           pot.bin, so a later run may need a different size.  Everything else in
+!           this routine is recomputed unconditionally, so a repeat call
+!           reproduces first-call state exactly.
+            if (allocated(lgind)) deallocate(lgind)
+            if (allocated(kind))  deallocate(kind)
+            if (allocated(lind))  deallocate(lind)
+            if (allocated(ljind)) deallocate(ljind)
             allocate(lgind(kfinmax),kind(kfinmax),lind(kfinmax),ljind(kfinmax))
 			lgind=0 ; kind(:)=0 ; lind=0 ; ljind=0
 			!!! next line taken from rexsphjas.f - not from getsizes

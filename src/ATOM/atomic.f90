@@ -5,7 +5,12 @@
 ! $Date: 2012/05/30 00:55:55 $
 !
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-program atomic_pot
+!
+! feffjl Phase 1: the body of this stage now lives in subroutine feff_atomic()
+! so it can be called in-process by feff_run_exafs (HEADERS/feff_exafs.f90).
+! ATOM/atomic_main.f90 is the thin shim for the standalone `atomic` executable.
+!
+subroutine feff_atomic
 
   !     calculate  el. density and potential given atomic positions for cluster atoms or other similar information
   !     calculation can vary in complexity: self-consistency (on/off), spin dependency (on/off), etc..
@@ -57,6 +62,6 @@ program atomic_pot
 400  call par_end
 
   if(master)call WipeErrorfileAtFinish
-  stop
-  
-end program atomic_pot
+  return
+
+end subroutine feff_atomic

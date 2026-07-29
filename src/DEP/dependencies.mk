@@ -2,6 +2,7 @@
 ./ATOM/apot.o: ./POT/m_atomicpotio.o ./ERRORMODS/m_errormod.o ./COMMON/m_constants.o ./COMMON/m_dimsmod.o ./PAR/m_par.o ./COMMON/m_config.o ./COMMON/m_inpmodules.o Compiler.mk
 ./ATOM/aprdev.o: Compiler.mk
 ./ATOM/atomic.o: ./COMMON/m_dimsmod.o ./PAR/m_par.o ./COMMON/m_inpmodules.o ./ERRORMODS/m_errorfile.o Compiler.mk
+./ATOM/atomic_main.o: Compiler.mk
 ./ATOM/bkmrdf.o: Compiler.mk
 ./ATOM/cofcon.o: Compiler.mk
 ./ATOM/dentfa.o: Compiler.mk
@@ -10,7 +11,7 @@
 ./ATOM/fdmocc.o: Compiler.mk
 ./ATOM/fdrirk.o: Compiler.mk
 ./ATOM/fpf0.o: ./COMMON/m_dimsmod.o ./COMMON/m_constants.o ./PAR/m_par.o Compiler.mk
-./ATOM/inmuat.o: Compiler.mk
+./ATOM/inmuat.o: ./COMMON/m_inpmodules.o Compiler.mk
 ./ATOM/intdir.o: Compiler.mk
 ./ATOM/lagdat.o: Compiler.mk
 ./ATOM/messer.o: Compiler.mk
@@ -20,6 +21,7 @@
 ./ATOM/ortdat.o: Compiler.mk
 ./ATOM/potrdf.o: Compiler.mk
 ./ATOM/potslw.o: Compiler.mk
+./ATOM/reset_atom_common.o: Compiler.mk
 ./ATOM/s02at.o: Compiler.mk
 ./ATOM/scfdat.o: ./COMMON/m_dimsmod.o ./PAR/m_par.o Compiler.mk
 ./ATOM/soldir.o: Compiler.mk
@@ -155,6 +157,7 @@
 ./FF2X/ff2chijas.o: ./COMMON/m_dimsmod.o ./COMMON/m_constants.o Compiler.mk
 ./FF2X/ff2gen.o: ./COMMON/m_dimsmod.o ./COMMON/m_constants.o ./COMMON/m_inpmodules.o ./DMDW/m_dmdw.o ./HEADERS/vers.h Compiler.mk
 ./FF2X/ff2x.o: ./PAR/m_par.o ./COMMON/m_inpmodules.o ./COMMON/m_nrixs.o ./ERRORMODS/m_errorfile.o ./COMMON/m_dimsmod.o Compiler.mk
+./FF2X/ff2x_main.o: Compiler.mk
 ./FF2X/ff2xmu.o: ./COMMON/m_dimsmod.o ./COMMON/m_constants.o ./COMMON/m_inpmodules.o ./FF2X/m_thermal_xscorr.o Compiler.mk
 ./FF2X/ff2xmujas.o: ./COMMON/m_constants.o ./COMMON/m_dimsmod.o Compiler.mk
 ./FF2X/fprime.o: ./COMMON/m_dimsmod.o ./COMMON/m_constants.o ./PAR/m_par.o Compiler.mk
@@ -166,6 +169,7 @@
 ./FF2X/xscorratan.o: ./COMMON/m_constants.o ./COMMON/m_dimsmod.o Compiler.mk
 ./FF2X/xscorrjas.o: ./COMMON/m_constants.o ./COMMON/m_dimsmod.o Compiler.mk
 ./FMS/fms.o: ./COMMON/m_dimsmod.o ./PAR/m_par.o ./COMMON/m_inpmodules.o ./COMMON/m_stkets.o ./COMMON/m_rotx.o ./COMMON/m_lnlm.o ./COMMON/m_xstruc.o ./ERRORMODS/m_errorfile.o ./COMMON/m_t3j.o Compiler.mk
+./FMS/fms_main.o: Compiler.mk
 ./FMS/fmskspace.o: ./COMMON/m_dimsmod.o ./KSPACE/m_struct.o ./KSPACE/m_kklist.o ./KSPACE/m_strfacs.o ./KSPACE/m_boundaries.o ./KSPACE/m_wigner3j.o ./KSPACE/m_trafo.o ./KSPACE/m_kgenwork.o ./KSPACE/m_controls.o ./IOMODS/m_iomod.o ./COMMON/m_constants.o Compiler.mk
 ./FMS/fmspack.o: ./COMMON/m_dimsmod.o ./KSPACE/m_controls.o ./COMMON/m_stkets.o ./COMMON/m_rotx.o ./COMMON/m_lnlm.o ./COMMON/m_xstruc.o ./COMMON/m_t3j.o ./PAR/m_par.o ./FMS/m_fms.o ./COMMON/m_constants.o Compiler.mk
 ./FMS/fmspack_h.o: ./COMMON/m_dimsmod.o ./COMMON/m_stkets.o ./COMMON/m_rotx.o ./COMMON/m_lnlm.o ./COMMON/m_xstruc.o ./COMMON/m_t3j.o ./PAR/m_par.o ./COMMON/m_inpmodules.o ./COMMON/m_constants.o Compiler.mk
@@ -223,6 +227,7 @@
 ./FULLSPECTRUM/sumrules.o: ./COMMON/m_constants.o ./FULLSPECTRUM/HEADERS/params.h Compiler.mk
 ./GENFMT/fmtrxi.o: ./COMMON/m_dimsmod.o ./COMMON/m_constants.o ./GENFMT/m_genfmt.o Compiler.mk
 ./GENFMT/genfmt.o: ./COMMON/m_dimsmod.o ./PAR/m_par.o ./COMMON/m_inpmodules.o ./COMMON/m_nrixs.o ./ERRORMODS/m_errorfile.o Compiler.mk
+./GENFMT/genfmt_main.o: Compiler.mk
 ./GENFMT/genfmtjas.o: ./COMMON/m_dimsmod.o ./COMMON/m_constants.o ./COMMON/m_nrixs.o ./COMMON/m_inpmodules.o ./GENFMT/m_genfmt.o ./HEADERS/vers.h Compiler.mk
 ./GENFMT/genfmtsub.o: ./COMMON/m_dimsmod.o ./COMMON/m_constants.o ./COMMON/m_inpmodules.o ./GENFMT/m_genfmt.o ./HEADERS/vers.h Compiler.mk
 ./GENFMT/m_genfmt.o: ./COMMON/m_dimsmod.o Compiler.mk
@@ -240,6 +245,8 @@
 ./GENFMT/snlm.o: ./COMMON/m_dimsmod.o ./GENFMT/m_genfmt.o Compiler.mk
 ./GENFMT/xstar.o: ./COMMON/m_dimsmod.o ./COMMON/m_constants.o ./GENFMT/m_genfmt.o Compiler.mk
 ./HEADERS/feff.o: Compiler.mk
+./HEADERS/feff_exafs.o: Compiler.mk
+./HEADERS/feff_exafs_main.o: Compiler.mk
 ./INPGEN/m_pot_generator.o: ./COMMON/m_kinds.o ./INPGEN/m_strings.o ./INPGEN/m_ptable.o Compiler.mk
 ./INPGEN/m_ptable.o: ./COMMON/m_kinds.o ./INPGEN/m_strings.o Compiler.mk
 ./INPGEN/m_strings.o: Compiler.mk
@@ -358,6 +365,7 @@
 ./PATH/mrb.o: ./COMMON/m_dimsmod.o Compiler.mk
 ./PATH/outcrt.o: ./COMMON/m_dimsmod.o ./COMMON/m_constants.o Compiler.mk
 ./PATH/path.o: ./COMMON/m_dimsmod.o ./COMMON/m_constants.o ./PAR/m_par.o ./COMMON/m_inpmodules.o ./ERRORMODS/m_errorfile.o Compiler.mk
+./PATH/path_main.o: Compiler.mk
 ./PATH/paths.o: ./COMMON/m_dimsmod.o Compiler.mk
 ./PATH/pathsd.o: ./COMMON/m_dimsmod.o ./COMMON/m_constants.o ./COMMON/m_inpmodules.o Compiler.mk
 ./PATH/phash.o: ./COMMON/m_dimsmod.o Compiler.mk
@@ -389,6 +397,7 @@
 ./POT/ovp2mt.o: ./COMMON/m_constants.o ./COMMON/m_dimsmod.o Compiler.mk
 ./POT/ovrlp.o: ./COMMON/m_constants.o ./COMMON/m_dimsmod.o Compiler.mk
 ./POT/pot.o: ./COMMON/m_dimsmod.o ./COMMON/m_stkets.o ./COMMON/m_rotx.o ./COMMON/m_lnlm.o ./COMMON/m_xstruc.o ./COMMON/m_t3j.o ./PAR/m_par.o ./COMMON/m_inpmodules.o ./ERRORMODS/m_errorfile.o ./POT/m_broydn_workspace.o Compiler.mk
+./POT/pot_main.o: Compiler.mk
 ./POT/potsub.o: ./POT/m_atomicpotio.o ./COMMON/m_dimsmod.o ./PAR/m_par.o ./COMMON/m_constants.o ./COMMON/m_inpmodules.o ./KSPACE/m_workstrfacs2.o ./KSPACE/m_controls.o ./POT/m_thermal_scf.o ./POT/m_sommerfeld_scf.o Compiler.mk
 ./POT/reapot.o: ./KSPACE/m_controls.o ./KSPACE/m_struct.o ./KSPACE/m_kklist.o ./KSPACE/m_strfacs.o ./COMMON/m_constants.o ./COMMON/m_inpmodules.o Compiler.mk
 ./POT/rhofmslie.o: ./COMMON/m_constants.o ./COMMON/m_dimsmod.o ./COMMON/m_inpmodules.o Compiler.mk
@@ -410,7 +419,8 @@
 ./RDINP/importcif.o: ./COMMON/m_dimsmod.o ./KSPACE/m_struct.o ./COMMON/m_inpmodules.o ./PAR/m_par.o ./COMMON/m_constants.o ./RDINP/ciftbx.cmn Compiler.mk
 ./RDINP/iniall.o: ./COMMON/m_inpmodules.o Compiler.mk
 ./RDINP/mkptz.o: ./COMMON/m_constants.o ./COMMON/m_inpmodules.o Compiler.mk
-./RDINP/rdinp.o: ./PAR/m_par.o ./COMMON/m_constants.o ./COMMON/m_inpmodules.o ./COMMON/m_dimsmod.o ./ERRORMODS/m_errorfile.o ./HEADERS/vers.h Compiler.mk
+./RDINP/rdinp.o: ./PAR/m_par.o ./COMMON/m_constants.o ./COMMON/m_inpmodules.o ./COMMON/m_dimsmod.o ./ERRORMODS/m_errorfile.o ./COMMON/m_config.o ./HEADERS/vers.h Compiler.mk
+./RDINP/rdinp_main.o: Compiler.mk
 ./RDINP/rdline.o: Compiler.mk
 ./RDINP/setedg.o: Compiler.mk
 ./RDINP/spgroup1.o: Compiler.mk
@@ -515,4 +525,5 @@
 ./XSPH/xsect.o: ./IOMODS/m_iomod.o ./COMMON/m_constants.o ./COMMON/m_dimsmod.o ./SELF/m_SelfEnergy.o Compiler.mk
 ./XSPH/xsectjas.o: ./COMMON/m_dimsmod.o ./IOMODS/m_iomod.o ./SELF/m_SelfEnergy.o ./COMMON/m_constants.o ./COMMON/m_inpmodules.o ./COMMON/m_nrixs.o Compiler.mk
 ./XSPH/xsph.o: ./COMMON/m_dimsmod.o ./COMMON/m_stkets.o ./COMMON/m_rotx.o ./COMMON/m_lnlm.o ./COMMON/m_xstruc.o ./COMMON/m_t3j.o ./PAR/m_par.o ./COMMON/m_inpmodules.o ./ERRORMODS/m_errorfile.o Compiler.mk
+./XSPH/xsph_main.o: Compiler.mk
 ./XSPH/xsphsub.o: ./KSPACE/m_controls.o ./IOMODS/m_iomod.o ./POT/m_atomicpotio.o ./COMMON/m_dimsmod.o ./COMMON/m_inpmodules.o ./COMMON/m_constants.o ./COMMON/m_nrixs.o ./ERRORMODS/m_errorfile.o Compiler.mk

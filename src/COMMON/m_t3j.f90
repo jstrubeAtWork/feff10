@@ -25,9 +25,14 @@ module t3j
 contains
 
   subroutine init_t3j(lx)
+    ! Idempotent: safe to call more than once in a process (in-process driver,
+    ! feff_run_exafs).  A repeat call reallocates, since lx can differ between
+    ! runs.
     implicit none
     integer, intent(in) :: lx
 
+    if (allocated(t3jp)) deallocate(t3jp)
+    if (allocated(t3jm)) deallocate(t3jm)
     allocate(t3jp(0:lx,-lx:lx,2))
     allocate(t3jm(0:lx,-lx:lx,2))
   end subroutine init_t3j
@@ -35,7 +40,8 @@ contains
   subroutine kill_t3j
     implicit none
 
-   deallocate(t3jp,t3jm)
+   if (allocated(t3jp)) deallocate(t3jp)
+   if (allocated(t3jm)) deallocate(t3jm)
  end subroutine kill_t3j
 
 

@@ -85,6 +85,14 @@ include DEP/feff_exafs$(DEPTYPE).mk
 feff_exafs_OBJ = ${feff_exafsSRC:.f90=.o}
 feff_exafs_MODULES =${feff_exafs_MODULESRC:.f90=.o}
 
+# feffjl Phase 2: the library is the same object set as the feff_exafs executable
+# minus the `program` shim -- a shared object carrying MAIN__ would collide with
+# the host program's main (and for Julia there is no Fortran main at all).
+# feff_exafs_main.o is the only *_main object in this set: the eight stage shims
+# are roots of their own DEP files, not reachable from HEADERS/feff_exafs.f90.
+libfeff_OBJ = $(filter-out ./HEADERS/feff_exafs_main.o,$(feff_exafs_OBJ))
+libfeff_MODULES = $(feff_exafs_MODULES)
+
 # Source files needed by FMS/fms.f90.
 include DEP/fms$(DEPTYPE).mk
 # Object files needed by FMS/fms.f90.
@@ -303,6 +311,39 @@ $(EXECDIR)/feff_exafs: $(feff_exafs_MODULES) $(feff_exafs_OBJ)
 	@echo -e $(F90) $(FLAGS) INCLUDEFLAGS -o $@ $(feff_exafs_MODULES) $(feff_exafs_OBJ) $(LDFLAGS)
 #####################################################################################################
 ###                              END feff_exafs                                             ###
+#####################################################################################################
+#####################################################################################################
+###                    libfeff  (feffjl Phase 2)                                              ###
+#####################################################################################################
+# Shared and static libraries exposing the EXAFS chain. The C ABI arrives in
+# Phase 3 (COMMON/m_feff_capi.f90); for now the exported symbols are the
+# gfortran-mangled Fortran ones -- `feff_run_exafs_` and the eight
+# `feff_<stage>_` -- which is enough for a C or Julia caller to link against and
+# is what gates/phase2_gate.sh checks.
+#
+# Build with -fPIC. tools/build_lib.sh passes the right flags:
+#   make lib "F90=gfortran" "FLAGS=$(GFORTRAN_LIB_FLAGS)" "LIBDIR=../lib"
+LIBDIR = ../lib
+
+lib: $(LIBDIR)/$(LIBFEFF_SO) $(LIBDIR)/$(LIBFEFF_A)
+
+# -shared needs every input to be PIC; without -fPIC in FLAGS the link fails with
+# "relocation R_X86_64_32S against `.bss' can not be used when making a shared
+# object", which is the intended failure mode rather than a silently bad library.
+$(LIBDIR)/$(LIBFEFF_SO): $(libfeff_MODULES) $(libfeff_OBJ)
+	mkdir -p $(LIBDIR)
+	$(F90) $(FLAGS) $(INCLUDEFLAGS) -shared -Wl,-soname,$(LIBFEFF_SO) -o $@ $(libfeff_MODULES) $(libfeff_OBJ) $(LDFLAGS)
+	@echo -e "built $@"
+
+# `ar ru` (the existing lbtool) is deprecated in modern binutils and warns; use
+# `ar rcs` so the static lib builds cleanly and has an index.
+$(LIBDIR)/$(LIBFEFF_A): $(libfeff_MODULES) $(libfeff_OBJ)
+	mkdir -p $(LIBDIR)
+	rm -f $@
+	ar rcs $@ $(libfeff_MODULES) $(libfeff_OBJ)
+	@echo -e "built $@"
+#####################################################################################################
+###                              END libfeff                                             ###
 #####################################################################################################
 
 #####################################################################################################

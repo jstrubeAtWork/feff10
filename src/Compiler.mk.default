@@ -92,3 +92,38 @@ endif
 # gfortran version < 10.0
 #  FLAGS = -ffree-line-length-none -cpp -O3
 
+########################################
+#      gfortran, shared library (feffjl Phase 2)
+########################################
+# The Julia binding needs a shared library, so every object must be -fPIC. Rather
+# than a separate object tree, the library build just uses -fPIC throughout: the
+# executables link fine from PIC objects, at a small and here-irrelevant cost
+# (this code is dominated by FMS matrix work, not by GOT-indirect calls).
+#
+# Select this with `make lib "F90=gfortran" "FLAGS=$(GFORTRAN_LIB_FLAGS)"`, or via
+# feffjl/tools/build_lib.sh which passes it for you.
+#
+# Flag notes:
+#   -fPIC                     required for the shared library
+#   -ffree-line-length-none   FEFF has free-form lines well past 132 chars
+#   -cpp                      DMDW/dmdw.f90 is the one file using #ifdef FEFF
+#   -fallow-argument-mismatch demoted to a warning. FEFF passes reals to
+#                             integer dummies in a few MPI/legacy call sites;
+#                             gfortran >= 10 rejects these by default. Cleaning
+#                             them up is real work and NOT a Phase 2 blocker --
+#                             but leaving the flag on means those mismatches stay
+#                             invisible, so the count is tracked in the Phase 2
+#                             notes rather than forgotten.
+#   -std=legacy               blank COMMON, implicit typing, `real*8`, and the
+#                             ATOM tree's fixed-form-isms.
+GFORTRAN_LIB_FLAGS = -O2 -fPIC -ffree-line-length-none -cpp -fallow-argument-mismatch -std=legacy
+# Debug variant: catches the out-of-bounds writes that were the substance of
+# Phase 1. Slow (~5x), so it is not the default, but worth running before
+# freezing new goldens.
+GFORTRAN_LIB_FLAGS_DEBUG = -O0 -g -fPIC -ffree-line-length-none -cpp -fallow-argument-mismatch -std=legacy -fbacktrace -fcheck=bounds
+
+# Shared-library name and soname. Kept here rather than in the Makefile so a
+# local build can override them without touching the tracked Makefile.
+LIBFEFF_SO = libfeff.so
+LIBFEFF_A  = libfeff.a
+

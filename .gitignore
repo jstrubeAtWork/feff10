@@ -13,6 +13,14 @@ src/DEP.bak/
 bin/Seq/
 bin/MPI/
 
+# Phase 2 gfortran build: tools/build_lib.sh puts the executable in bin/gfortran
+# (bin/gfortran-dbg for --debug) and the libraries in lib/ (lib-dbg/), keeping
+# them clear of the ifort output in bin/Seq.
+bin/gfortran/
+bin/gfortran-dbg/
+lib/
+lib-dbg/
+
 # Makefile copies PAR/sequential.src (or parallel.src) here at build time.
 src/PAR/parallel.f90
 

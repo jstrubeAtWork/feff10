@@ -26,25 +26,45 @@
 ! whatever dimensions the current run wrote.  The driver therefore does not
 ! duplicate that reset logic -- it stays the single owner of ordering only.
 !
-! Known Phase-1 caveat: KSPACE/m_struct.f90::init_struct is guarded with
-! `if(.not.allocated(...))`, so it reuses arrays sized by the first run in the
-! process.  For repeated runs whose atom count grows this is a latent bug.  It is
-! not exercised by the reciprocal-space-free EXAFS chain used here (ispace=0
-! k-space paths are what consume it), but it must be fixed before feff_run_exafs
-! is offered for arbitrary repeated inputs via the C ABI.
+! Phase-1 caveat, now closed: KSPACE/m_struct.f90::init_struct was guarded with
+! `if(.not.allocated(...))`, so it reused arrays sized by the first run in the
+! process.  Phase 3 replaced that with an extent test, since the C ABI makes
+! repeated calls routine.
+!
+! feffjl Phase 3: the chain is now abort-aware.  Each stage's input-validation
+! failures record themselves through COMMON/m_feff_status.f90 and return instead of
+! calling `stop`, so the driver has to check between stages -- otherwise rdinp
+! rejecting feff.inp would be followed by atomic and pot running on whatever
+! mod*.inp happens to be left over from a previous run, which is worse than the
+! `stop` it replaced.  Hence a check after every stage rather than only after
+! rdinp: the status flag is shared, so any stage that learns to abort later is
+! honoured here for free.
+!
+! Deliberately not a `goto`-based unwind: there is nothing to tear down at this
+! level (each stage does its own par_barrier/par_end at its label 400), so a plain
+! `return` is the whole of it.
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
       subroutine feff_run_exafs
 
+      use feff_status, only: feff_failed
+
       implicit none
 
       call feff_rdinp
+      if (feff_failed()) return
       call feff_atomic
+      if (feff_failed()) return
       call feff_pot
+      if (feff_failed()) return
       call feff_xsph
+      if (feff_failed()) return
       call feff_fms
+      if (feff_failed()) return
       call feff_path
+      if (feff_failed()) return
       call feff_genfmt
+      if (feff_failed()) return
       call feff_ff2x
 
       return

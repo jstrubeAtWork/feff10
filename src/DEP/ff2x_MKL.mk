@@ -18,4 +18,5 @@ ff2x_MODULESRC = \
 ./KSPACE/m_kklist.f90 ./KSPACE/m_strfacs.f90 ./COMMON/m_inpmodules.f90 \
 ./COMMON/m_nrixs.f90 ./COMMON/m_kinds.f90 ./DMDW/m_const_and_conv.f90 \
 ./INPGEN/m_strings.f90 ./INPGEN/m_ptable.f90 ./DMDW/m_math.f90 \
-./DMDW/m_dmdw.f90 ./FF2X/m_thermal_xscorr.f90 ./ERRORMODS/m_errorfile.f90 
+./DMDW/m_dmdw.f90 ./FF2X/m_thermal_xscorr.f90 ./COMMON/m_feff_results.f90 \
+./ERRORMODS/m_errorfile.f90 

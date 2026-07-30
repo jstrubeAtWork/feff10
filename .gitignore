@@ -36,3 +36,10 @@ bin/feffmpi
 bin/density.inp
 bin/fort.*
 bin/log*.dat
+
+# Phase 3: gfortran invents fort.<unit> in the CURRENT directory when something
+# writes to an unopened unit, so probing libfeff.so from src/ can leave a fort.11
+# there. The write itself is now guarded (COMMON/m_feff_status.f90 inquires whether
+# unit 11 is open before using wlog), but the file is generated either way and
+# should never be committed.
+src/fort.*

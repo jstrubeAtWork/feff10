@@ -501,7 +501,14 @@ CONTAINS
       if (.NOT.is_in_grid(xmunew)) then
           write(slog,*) "xmunew is not in grid"
           call wlog(slog)
-          call par_stop
+!         feffjl Phase 3: par_stop's dummy is `character*(*) string`
+!         (PAR/sequential.src) and it inspects it unconditionally, so calling it
+!         with no argument passed a garbage descriptor on the way to reporting the
+!         real error.  -std=legacy hid it.  One of six such sites across the two
+!         POT SCF modules (limitation 8 of the Phase-2 document).
+!         Still a par_stop, not a feff_abort: this is mid-SCF, many frames below
+!         the ABI boundary, so unwinding it is out of Phase 3's scope.
+          call par_stop('THERMAL SCF: xmunew is not in grid')
       endif
     end if
   end subroutine
@@ -683,7 +690,9 @@ CONTAINS
       ! \rho_val  = \int_ecv^inf f(mu,E,T)ImG/pi
       ! \rho_core = \sum_i |\phi_i|^2 f(mu,E_i,T)
       ! I think the above indicates a serious problem, so I'm going to put a stop here
-      call par_stop
+!     feffjl Phase 3: mandatory argument supplied -- see the note at the
+!     "xmunew is not in grid" site above.
+      call par_stop('THERMAL SCF: chemical potential below the bottom of the grid')
     ELSE
       ! Interpolating
       ne_terp = ind_m3 + nxmu + (ne-ind_p3+1)
@@ -891,7 +900,9 @@ CONTAINS
         interp1d = y(n)
       ELSE
         PRINT*, "ERROR: Out of range !",x(1)*hart,"<=",x0*hart,"<=",x(n)*hart
-        call par_stop
+!       feffjl Phase 3: mandatory argument supplied -- see the note at the
+!       "xmunew is not in grid" site above.
+        call par_stop('THERMAL SCF interp1d: interpolation point out of range')
       ENDIF
     endif
     RETURN

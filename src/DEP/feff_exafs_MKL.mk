@@ -1,7 +1,7 @@
 feff_exafsSRC = \
 ./HEADERS/feff_exafs_main.f90 ./HEADERS/feff_exafs.f90 ./RDINP/rdinp.f90 \
 ./RDINP/consistency.f90 ./COMMON/itoken.f90 ./COMMON/str.f90 \
-./MATH/dist.f90 ./COMMON/getorb.f90 ./COMMON/wlog.f90 \
+./COMMON/wlog.f90 ./MATH/dist.f90 ./COMMON/getorb.f90 \
 ./PAR/parallel.f90 ./RDINP/rdline.f90 ./COMMON/nxtunt.f90 \
 ./COMMON/rdhead.f90 ./COMMON/chopen.f90 ./RDINP/iniall.f90 \
 ./RDINP/setedg.f90 ./RDINP/fixlinenow.f90 ./RDINP/importcif.f90 \
@@ -105,21 +105,21 @@ feff_exafsSRC = \
 ./FF2X/fprime.f90 ./FF2X/ff2chijas.f90 ./FF2X/ff2xmu.f90 \
 ./FF2X/rdfbin.f90 ./FF2X/ff2afs.f90 ./FF2X/ff2chi.f90 
 feff_exafs_MODULESRC = \
-./PAR/m_par.f90 ./COMMON/m_dimsmod.f90 ./KSPACE/m_controls.f90 \
-./KSPACE/m_struct.f90 ./KSPACE/m_boundaries.f90 ./KSPACE/m_kklist.f90 \
-./KSPACE/m_strfacs.f90 ./COMMON/m_constants.f90 ./COMMON/m_inpmodules.f90 \
-./COMMON/m_config.f90 ./ERRORMODS/m_errorfile.f90 ./KSPACE/m_kgenwork.f90 \
-./KSPACE/m_tetrahedra.f90 ./KSPACE/m_controlkgen.f90 ./KSPACE/m_energygrid.f90 \
-./KSPACE/m_workstrfacs2.f90 ./KSPACE/m_workstrfacs.f90 ./KSPACE/m_workstrfacssimple.f90 \
-./KSPACE/m_trafo.f90 ./KSPACE/m_wigner3j.f90 ./ERRORMODS/m_errormod.f90 \
-./IOMODS/m_iofiles.f90 ./IOMODS/m_padio.f90 ./IOMODS/m_iomod.f90 \
-./COMMON/m_kinds.f90 ./POT/m_mtdp.f90 ./POT/m_atomicpotio.f90 \
-./EXCH/m_pdw.f90 ./EXCH/m_pz.f90 ./EXCH/m_ksdt.f90 \
-./COMMON/m_ifuns.f90 ./COMMON/m_rotx.f90 ./COMMON/m_lnlm.f90 \
-./COMMON/m_xstruc.f90 ./COMMON/m_afctr.f90 ./COMMON/m_stkets.f90 \
-./FMS/m_fms.f90 ./COMMON/m_t3j.f90 ./POT/m_broydn_workspace.f90 \
-./POT/m_thermal_scf.f90 ./POT/m_sommerfeld_scf.f90 ./COMMON/m_nrixs.f90 \
-./XSPH/m_elam.f90 ./SELF/m_SelfEnergy.f90 ./TDLDA/getchi0.f90 \
-./DMDW/m_const_and_conv.f90 ./INPGEN/m_strings.f90 ./INPGEN/m_ptable.f90 \
-./DMDW/m_math.f90 ./DMDW/m_dmdw.f90 ./GENFMT/m_genfmt.f90 \
-./FF2X/m_thermal_xscorr.f90 
+./PAR/m_par.f90 ./COMMON/m_feff_status.f90 ./COMMON/m_dimsmod.f90 \
+./KSPACE/m_controls.f90 ./KSPACE/m_struct.f90 ./KSPACE/m_boundaries.f90 \
+./KSPACE/m_kklist.f90 ./KSPACE/m_strfacs.f90 ./COMMON/m_constants.f90 \
+./COMMON/m_inpmodules.f90 ./COMMON/m_config.f90 ./ERRORMODS/m_errorfile.f90 \
+./KSPACE/m_kgenwork.f90 ./KSPACE/m_tetrahedra.f90 ./KSPACE/m_controlkgen.f90 \
+./KSPACE/m_energygrid.f90 ./KSPACE/m_workstrfacs2.f90 ./KSPACE/m_workstrfacs.f90 \
+./KSPACE/m_workstrfacssimple.f90 ./KSPACE/m_trafo.f90 ./KSPACE/m_wigner3j.f90 \
+./ERRORMODS/m_errormod.f90 ./IOMODS/m_iofiles.f90 ./IOMODS/m_padio.f90 \
+./IOMODS/m_iomod.f90 ./COMMON/m_kinds.f90 ./POT/m_mtdp.f90 \
+./POT/m_atomicpotio.f90 ./EXCH/m_pdw.f90 ./EXCH/m_pz.f90 \
+./EXCH/m_ksdt.f90 ./COMMON/m_ifuns.f90 ./COMMON/m_rotx.f90 \
+./COMMON/m_lnlm.f90 ./COMMON/m_xstruc.f90 ./COMMON/m_afctr.f90 \
+./COMMON/m_stkets.f90 ./FMS/m_fms.f90 ./COMMON/m_t3j.f90 \
+./POT/m_broydn_workspace.f90 ./POT/m_thermal_scf.f90 ./POT/m_sommerfeld_scf.f90 \
+./COMMON/m_nrixs.f90 ./XSPH/m_elam.f90 ./SELF/m_SelfEnergy.f90 \
+./TDLDA/getchi0.f90 ./DMDW/m_const_and_conv.f90 ./INPGEN/m_strings.f90 \
+./INPGEN/m_ptable.f90 ./DMDW/m_math.f90 ./DMDW/m_dmdw.f90 \
+./GENFMT/m_genfmt.f90 ./FF2X/m_thermal_xscorr.f90 ./COMMON/m_feff_results.f90 

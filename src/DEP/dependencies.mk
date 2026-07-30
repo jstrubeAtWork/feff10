@@ -61,6 +61,9 @@
 ./COMMON/m_config.o: ./COMMON/m_inpmodules.o Compiler.mk
 ./COMMON/m_constants.o: Compiler.mk
 ./COMMON/m_dimsmod.o: Compiler.mk
+./COMMON/m_feff_capi.o: ./COMMON/m_feff_status.o ./COMMON/m_feff_results.o Compiler.mk
+./COMMON/m_feff_results.o: Compiler.mk
+./COMMON/m_feff_status.o: Compiler.mk
 ./COMMON/m_ifuns.o: Compiler.mk
 ./COMMON/m_inpmodules.o: ./COMMON/m_dimsmod.o ./KSPACE/m_controls.o ./KSPACE/m_struct.o ./KSPACE/m_kklist.o ./KSPACE/m_strfacs.o ./COMMON/m_constants.o Compiler.mk
 ./COMMON/m_kinds.o: Compiler.mk
@@ -153,7 +156,7 @@
 ./FF2X/feffdt.o: ./COMMON/m_dimsmod.o ./COMMON/m_constants.o ./HEADERS/vers.h Compiler.mk
 ./FF2X/ff2afs.o: ./COMMON/m_dimsmod.o ./COMMON/m_constants.o Compiler.mk
 ./FF2X/ff2afsjas.o: ./COMMON/m_dimsmod.o ./COMMON/m_constants.o Compiler.mk
-./FF2X/ff2chi.o: ./COMMON/m_dimsmod.o ./COMMON/m_constants.o Compiler.mk
+./FF2X/ff2chi.o: ./COMMON/m_dimsmod.o ./COMMON/m_constants.o ./COMMON/m_feff_results.o Compiler.mk
 ./FF2X/ff2chijas.o: ./COMMON/m_dimsmod.o ./COMMON/m_constants.o Compiler.mk
 ./FF2X/ff2gen.o: ./COMMON/m_dimsmod.o ./COMMON/m_constants.o ./COMMON/m_inpmodules.o ./DMDW/m_dmdw.o ./HEADERS/vers.h Compiler.mk
 ./FF2X/ff2x.o: ./PAR/m_par.o ./COMMON/m_inpmodules.o ./COMMON/m_nrixs.o ./ERRORMODS/m_errorfile.o ./COMMON/m_dimsmod.o Compiler.mk
@@ -245,7 +248,7 @@
 ./GENFMT/snlm.o: ./COMMON/m_dimsmod.o ./GENFMT/m_genfmt.o Compiler.mk
 ./GENFMT/xstar.o: ./COMMON/m_dimsmod.o ./COMMON/m_constants.o ./GENFMT/m_genfmt.o Compiler.mk
 ./HEADERS/feff.o: Compiler.mk
-./HEADERS/feff_exafs.o: Compiler.mk
+./HEADERS/feff_exafs.o: ./COMMON/m_feff_status.o Compiler.mk
 ./HEADERS/feff_exafs_main.o: Compiler.mk
 ./INPGEN/m_pot_generator.o: ./COMMON/m_kinds.o ./INPGEN/m_strings.o ./INPGEN/m_ptable.o Compiler.mk
 ./INPGEN/m_ptable.o: ./COMMON/m_kinds.o ./INPGEN/m_strings.o Compiler.mk
@@ -411,7 +414,7 @@
 ./RDINP/cif2feffatoms.o: Compiler.mk
 ./RDINP/ciftbx.o: ./RDINP/ciftbx.sys Compiler.mk
 ./RDINP/clearfp.o: Compiler.mk
-./RDINP/consistency.o: Compiler.mk
+./RDINP/consistency.o: ./COMMON/m_feff_status.o Compiler.mk
 ./RDINP/ffsort.o: ./PAR/m_par.o ./COMMON/m_constants.o ./COMMON/m_dimsmod.o ./COMMON/m_inpmodules.o Compiler.mk
 ./RDINP/findz.o: Compiler.mk
 ./RDINP/fixlinenow.o: ./COMMON/m_dimsmod.o Compiler.mk
@@ -419,7 +422,7 @@
 ./RDINP/importcif.o: ./COMMON/m_dimsmod.o ./KSPACE/m_struct.o ./COMMON/m_inpmodules.o ./PAR/m_par.o ./COMMON/m_constants.o ./RDINP/ciftbx.cmn Compiler.mk
 ./RDINP/iniall.o: ./COMMON/m_inpmodules.o Compiler.mk
 ./RDINP/mkptz.o: ./COMMON/m_constants.o ./COMMON/m_inpmodules.o Compiler.mk
-./RDINP/rdinp.o: ./PAR/m_par.o ./COMMON/m_constants.o ./COMMON/m_inpmodules.o ./COMMON/m_dimsmod.o ./ERRORMODS/m_errorfile.o ./COMMON/m_config.o ./HEADERS/vers.h Compiler.mk
+./RDINP/rdinp.o: ./PAR/m_par.o ./COMMON/m_constants.o ./COMMON/m_inpmodules.o ./COMMON/m_dimsmod.o ./ERRORMODS/m_errorfile.o ./COMMON/m_config.o ./COMMON/m_feff_status.o ./HEADERS/vers.h Compiler.mk
 ./RDINP/rdinp_main.o: Compiler.mk
 ./RDINP/rdline.o: Compiler.mk
 ./RDINP/setedg.o: Compiler.mk

@@ -12,8 +12,15 @@
 !     adds the contributions from each path and absorber, including
 !     Debye-Waller factors. Writes down main output: chi.dat and xmu.dat
 
-      use dimsmod, only: npx=>npx_ff2x, nheadx, nex, nphx=>nphu, legtot 
+      use dimsmod, only: npx=>npx_ff2x, nheadx, nex, nphx=>nphu, legtot
 	  use constants
+!     feffjl Phase 3: capture chi.dat/xmu.dat in memory as they are written, so the
+!     C ABI can hand a caller the doubles rather than making it re-parse our own
+!     text output.  See COMMON/m_feff_results.f90 for why capture happens here
+!     rather than in a reader at the ABI boundary.
+      use feff_results, only: feff_results_alloc, feff_results_store_chi, &
+     &                        feff_results_store_xmu, feff_results_done_chi, &
+     &                        feff_results_done_xmu, feff_results_store_paths
       implicit double precision (a-h, o-z)
 
       parameter (eps4 = 1.0e-4)
@@ -333,6 +340,8 @@
          write(3,600)  coment, nused, ntotal
          write(8,600)  coment, nused, ntotal
   600    format (a2, 1x, i4, '/', i4, ' paths used')
+!        feffjl Phase 3: same pair, for feff_get_npaths.
+         call feff_results_store_paths(nused, ntotal)
          write(3,610) coment
   610    format (a2, 1x, 71('-'))
          write(3,620) coment
@@ -369,6 +378,11 @@
 
 
 !        write to 'chi.dat'
+!        feffjl Phase 3: size the capture buffers to the fine grid.  nkx, not
+!        nfinex (= nex*100 = 200000): the loops below run to nkx, which is where
+!        the 250/260 loop above stopped once xk0 passed xk(ne1).  Allocating
+!        nfinex would waste ~16 MB per array to store ~401 points.
+         call feff_results_alloc(nkx)
          do 660 ik = 1, nkx
             ccc = chia(ik)
             phase = 0
@@ -377,6 +391,13 @@
             endif
             if (ik .gt. 1)  call pijump (phase, phase0)
             phase0 = phase
+!           feffjl Phase 3: store the same four expressions the write statement
+!           formats, before formatting rounds them.  Done once here rather than
+!           inside both branches because the ipr4=4 branch prints these same four
+!           columns plus two ck columns -- the extra columns are for Conradson's
+!           external program and are not part of the ABI.
+            call feff_results_store_chi(ik, xkp(ik)/bohr, rchtot(ik),   &
+     &                                  abs(ccc), phase0)
             if (ipr4.ne.4) then
               write(3,630)  xkp(ik)/bohr, rchtot(ik), abs(ccc), phase0
   630         format (1x, f10.4, 3x, 3(1pe13.6,1x))
@@ -398,6 +419,10 @@
   650         format (1x, f10.4, 3x, 5(1pe13.6,1x))
             endif
   660    continue
+!        feffjl Phase 3: the loop completed all nkx points, so the capture is a
+!        whole spectrum.  Flagged after the loop, never inside it, so an early exit
+!        leaves the getter reporting no data rather than a truncated curve.
+         call feff_results_done_chi(nkx)
          close (unit=3)
    
 !        write to 'xmu.dat'
@@ -460,13 +485,25 @@
               write(8,700)  omegax(ik)*hart, em0*hart, xkp(ik)/bohr,    &
      &              ( chi0 + dble(xsec0) )/xsedge,                      &
      &              xsec0 /xsedge, rchtot(ik)
+!             feffjl Phase 3: store the write statement's own expressions.  This is
+!             the branch the EXAFS chain takes (ispec=0); the f'/f" branch below is
+!             captured too so a getter never returns the wrong branch's numbers
+!             silently, but note the columns mean different things there -- see the
+!             Cromer-Liberman comment.
+              call feff_results_store_xmu(ik, omegax(ik)*hart, em0*hart, &
+     &             xkp(ik)/bohr, ( chi0 + dble(xsec0) )/xsedge,          &
+     &             xsec0/xsedge, rchtot(ik))
             else
 !             signs to comply with Cromer-Liberman notation for f', f"
               write(8,700)  omegax(ik)*hart, em0*hart, xkp(ik)/bohr,    &
      &             -(xsec0+chi0), -xsec0, -chi0
+              call feff_results_store_xmu(ik, omegax(ik)*hart, em0*hart, &
+     &             xkp(ik)/bohr, -(xsec0+chi0), -xsec0, -chi0)
             endif
   700       format (1x, 2f11.3, f8.3, 1p, 3e13.5)
   750    continue
+!        feffjl Phase 3: whole-spectrum flag, as for chi above.
+         call feff_results_done_xmu(nkx)
          close (unit=8)
       endif
 !     for if (iabs=abs); or the last absorber

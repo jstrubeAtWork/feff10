@@ -14,14 +14,31 @@
 ! Also, this setup should be easy to port into the GUI.
 ! More sophisticated checks (eg. dependent on value of a given card option) should still be done in rdinp.f90
 
-
+!
+! feffjl Phase 3: every `stop` below became `call feff_abort(...)` + `return`.
+! This routine is the single best place for that conversion -- it is where
+! malformed-but-parseable feff.inp lands, the checks are one-liners with no state
+! to unwind, and the caller (RDINP/rdinp.f90) is one level up.  A library must not
+! terminate its host; feff_abort records the same message (and still wlog's it)
+! and lets rdinp return a failure the C ABI can report.  See COMMON/m_feff_status.f90.
+!
+! The messages are unchanged apart from rule 4, which never printed at all -- see
+! the note there.
+!
+      use feff_status, only: feff_abort
       implicit none
 	  logical,intent(in) :: c(150)
 !     "c" keeps track of whether a card was listed in feff.inp or no.
 !     Check that no incompatible combinations exist.
       integer i(150)
 	  integer j
-      CHARACTER message(300)
+!     feffjl Phase 3: was `CHARACTER message(300)`, i.e. an ARRAY of 300 elements
+!     each one character long -- not a 300-character string.  So the assignment in
+!     rule 4 below broadcast the first character of the message across all 300
+!     elements and threw the text away, and the bare `stop` that followed printed
+!     nothing.  A user tripping that rule got a silent exit.  Declared as a scalar
+!     string now, which is what the assignment always intended.
+      character*300 message
 
 !     set up equivalent array i - integers easier to check groups of exclusive cards
       i=0
@@ -31,37 +48,68 @@
 
 
 !  1/ Not more than one spectroscopy selected (only 1 choice of exafs,exelfs,xanes,elnes,xes,danes,fprime)
-      if(i(21)+i(24)+i(42)+i(43)+i(44)+i(56)+i(57).gt.1) stop 'ERROR more than one type of spectroscopy selected'
+      if(i(21)+i(24)+i(42)+i(43)+i(44)+i(56)+i(57).gt.1) then
+         call feff_abort('ERROR more than one type of spectroscopy selected')
+         return
+      endif
 !  2/ Nrixs must be combined with XANES or EXAFS, but no other card
-      if(c(78).and.(i(21)+i(24).ne.1)) stop 'NRIXS must be combined with XANES or EXAFS'
-	  if(c(78).and.(i(42)+i(43)+i(44)+i(56)+i(57).gt.0)) stop 'NRIXS combined with incompatible spectroscopy card'	        
+      if(c(78).and.(i(21)+i(24).ne.1)) then
+         call feff_abort('NRIXS must be combined with XANES or EXAFS')
+         return
+      endif
+	  if(c(78).and.(i(42)+i(43)+i(44)+i(56)+i(57).gt.0)) then
+         call feff_abort('NRIXS combined with incompatible spectroscopy card')
+         return
+      endif
 !  3/ NRIXS check 2 : This may be overly conservative but I'm worried about overlap and reuse of le2 MULTIPOLE <-> LJMAX
-      if((c(79).or.c(80)).and.(.not.c(78))) stop 'LDEC and LJMAX cards only allowed with NRIXS'
-      if(c(78).and.c(47)) stop 'you cannot combine NRIXS and MULTIPOLE'
+      if((c(79).or.c(80)).and.(.not.c(78))) then
+         call feff_abort('LDEC and LJMAX cards only allowed with NRIXS')
+         return
+      endif
+      if(c(78).and.c(47)) then
+         call feff_abort('you cannot combine NRIXS and MULTIPOLE')
+         return
+      endif
 !  4/ NRIXS check 3 :
       if(c(78).and.(i(25)+i(26)+i(29)+i(34)+i(40)+i(46)+i(28)+i(42)+i(49)+i(50)+i(104).gt.0)) then
-         
+
          message = 'The following cards explicitly forbidden for NRIXS : ' // &
       &       'ELLIP,POLARIZATION,NSTAR,SPIN,CFAVERAGE,XNCD,XMCD,RPHASES,TDLDA,XES,PMBSE,HUBBARD'
-         stop
+         call feff_abort(trim(message))
+         return
       end if
 !  5/ k-space needs lattice vectors and k-mesh
       if(c(62)) then
-	     if (((i(65)+i(71)).ne.2)) stop 'KMESH and TARGET are required for RECIPROCAL card'
-		 if ((i(64)+i(92)).ne.1) stop 'use either LATTICE or CIF with RECIPROCAL card'
+	     if (((i(65)+i(71)).ne.2)) then
+            call feff_abort('KMESH and TARGET are required for RECIPROCAL card')
+            return
+         endif
+		 if ((i(64)+i(92)).ne.1) then
+            call feff_abort('use either LATTICE or CIF with RECIPROCAL card')
+            return
+         endif
 	  endif
 !  6/ NOHOLE card and COREHOLE card do the same things. JK 08/09
-      if(c(30).and.c(68)) stop 'Please use only one of the NOHOLE and COREHOLE cards. They are redundant.'
+      if(c(30).and.c(68)) then
+         call feff_abort('Please use only one of the NOHOLE and COREHOLE cards. They are redundant.')
+         return
+      endif
 
 !!  7/ MDFF needs ELNES or EXELFS
 !      if(c(88).and.(.not.(c(56).or.c(57)))) stop 'MDFF must be used with ELNES or EXELFS.'
 
 
 !  8/ No COMPTON options if compton not enabled
-	  if((.not.(c(94).or.c(95))) .and. c(96)) stop 'Cannot use CGRID without COMPTON or RHOZZP.  Exiting.'
+	  if((.not.(c(94).or.c(95))) .and. c(96)) then
+         call feff_abort('Cannot use CGRID without COMPTON or RHOZZP.  Exiting.')
+         return
+      endif
 
 !  9/ HUBBARD not compatible with KSPACE
-      if( c(104) .and. c(62)) stop 'Cannot use RECIPROCAL with HUBBARD.'
+      if( c(104) .and. c(62)) then
+         call feff_abort('Cannot use RECIPROCAL with HUBBARD.')
+         return
+      endif
 
 !!! Everybody please add their own checks!
 

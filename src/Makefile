@@ -90,8 +90,24 @@ feff_exafs_MODULES =${feff_exafs_MODULESRC:.f90=.o}
 # the host program's main (and for Julia there is no Fortran main at all).
 # feff_exafs_main.o is the only *_main object in this set: the eight stage shims
 # are roots of their own DEP files, not reachable from HEADERS/feff_exafs.f90.
+#
+# feffjl Phase 3: COMMON/m_feff_capi.o is appended by hand, and has to be.
+# Utility/mkdep.py builds each DEP file by walking `call` and `use` edges OUT from
+# a root, so it only ever finds files the chain depends on.  The C ABI is the
+# opposite direction: it depends on the chain and nothing in the chain depends on
+# it, so no edge from HEADERS/feff_exafs.f90 reaches it and regen_dep.sh cannot
+# help.  (COMMON/m_feff_status.o and COMMON/m_feff_results.o ARE found, because
+# rdinp/ff2chi `use` them.)  Without this line the library links fine and simply
+# exports none of the ABI -- which is why Phase-3 gate check A asserts every
+# bind(c) symbol is present rather than trusting the link to have noticed.
+#
+# It goes in libfeff_MODULES, not libfeff_OBJ: the two lists are disjoint (checked
+# -- 54 and 316 files, no overlap) and BOTH are passed to the linker, so naming it
+# twice would be a duplicate-symbol error.  MODULES is the right list because
+# m_feff_capi.f90 is a module and the *_MODULES list is what the Makefile compiles
+# first, which the `use feff_capi` ordering requires.
 libfeff_OBJ = $(filter-out ./HEADERS/feff_exafs_main.o,$(feff_exafs_OBJ))
-libfeff_MODULES = $(feff_exafs_MODULES)
+libfeff_MODULES = $(feff_exafs_MODULES) ./COMMON/m_feff_capi.o
 
 # Source files needed by FMS/fms.f90.
 include DEP/fms$(DEPTYPE).mk
@@ -315,11 +331,17 @@ $(EXECDIR)/feff_exafs: $(feff_exafs_MODULES) $(feff_exafs_OBJ)
 #####################################################################################################
 ###                    libfeff  (feffjl Phase 2)                                              ###
 #####################################################################################################
-# Shared and static libraries exposing the EXAFS chain. The C ABI arrives in
-# Phase 3 (COMMON/m_feff_capi.f90); for now the exported symbols are the
-# gfortran-mangled Fortran ones -- `feff_run_exafs_` and the eight
-# `feff_<stage>_` -- which is enough for a C or Julia caller to link against and
-# is what gates/phase2_gate.sh checks.
+# Shared and static libraries exposing the EXAFS chain.
+#
+# feffjl Phase 3: the exported surface is now the bind(c) ABI in
+# COMMON/m_feff_capi.f90 -- feff_run_exafs, feff_last_error, feff_get_nk,
+# feff_get_chi, feff_get_xmu, feff_get_npaths, feff_abi_version -- with unmangled
+# names, checked by gates/phase3_gate.sh.  The gfortran-mangled Fortran symbols
+# (`feff_run_exafs_` and the eight `feff_<stage>_`) are still exported and
+# gates/phase2_gate.sh still checks them: Phase 2's reentrancy matrix calls them
+# directly, and they are what the k-space reentrancy fixture reaches
+# `__struct_MOD_init_struct` through.  They are not API -- a caller should use the
+# bind(c) names, which are the ones with a stable spelling across toolchains.
 #
 # Build with -fPIC. tools/build_lib.sh passes the right flags:
 #   make lib "F90=gfortran" "FLAGS=$(GFORTRAN_LIB_FLAGS)" "LIBDIR=../lib"

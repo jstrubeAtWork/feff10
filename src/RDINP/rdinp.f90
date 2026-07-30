@@ -15,10 +15,24 @@
 ! call, so feff_rdinp takes no arguments; configurational averaging (nabs>1) is
 ! out of scope for Phase 1.
 !
-! Caveat: the ~8 fatal input-validation `stop`s in the body below are deliberately
-! NOT converted to `return`.  They abort on malformed feff.inp; returning normally
-! would let the driver proceed with invalid input.  Turning them into status codes
-! belongs to Phase 3 (C ABI), where there is somewhere to report the error to.
+! feffjl Phase 3 (was the Phase-1 caveat about the fatal input-validation `stop`s):
+! the input-validation `stop` / `par_stop` sites in the body below now `call
+! feff_abort(...)` and `goto 400`, which records the message and unwinds instead of
+! terminating the process.  Returning is not the same as proceeding: the caller
+! (HEADERS/feff_exafs.f90, or the C ABI in COMMON/m_feff_capi.f90) tests
+! feff_failed() and stops the chain, so the driver never runs on invalid input --
+! it just no longer takes the host process down to find that out.
+!
+! `goto 400` rather than a bare `return` because label 400 is the shared teardown:
+! par_barrier + par_end.  Skipping those would leave the parallel state
+! inconsistent for the next in-process run, which is precisely the scenario the C
+! ABI makes routine.  Label 400 is also where the worker ranks land (line 125), so
+! aborting on the master converges to the same exit point the workers already use.
+!
+! Not every fatal site in the closure is converted -- the deeper ones (m_config,
+! getorb, ciftbx, the CALL Error(...) clients) still terminate.  See
+! PHASE3_STATUS_AND_PLAN.md for exactly which, so no caller assumes containment
+! that does not exist.
 !
       subroutine feff_rdinp
 
@@ -58,6 +72,7 @@
     use band_inp, emin_band=>emin,emax_band=>emax,estep_band=>estep,nkp_band=>nkp  !avoid contamination between modules
     use errorfile
     use config, only: ResetConfig   ! feffjl Phase 1: per-run config-table reset
+    use feff_status, only: feff_abort, feff_failed  ! feffjl Phase 3: report, don't stop
     use hubbard_inp
     use fullspectrum_inp
 
@@ -991,7 +1006,9 @@
           mband = 1
           if(nwords.lt.5) then
              call wlog('BANDSTRUCTURE requires at least: emin  emax  estep  ikpath')
-             call par_stop(' ')
+!            feffjl Phase 3: record and unwind instead of par_stop.
+             call feff_abort('BANDSTRUCTURE requires at least: emin emax estep ikpath')
+             goto 400
           endif
           read(words(2),*,err=900) emin_band
           read(words(3),*,err=900) emax_band
@@ -1011,8 +1028,9 @@
                       !I'm keeping 'regular' here for compatibility - don't tell John :)
                       nohole = -1
                    else
-                      call wlog('Invalid COREHOLE option - choose NONE, RPA, or FSR.')
-                      stop
+!                     feffjl Phase 3: record and unwind instead of `stop`.
+                      call feff_abort('Invalid COREHOLE option - choose NONE, RPA, or FSR.')
+                      goto 400
                 endif
                 ! Set COREHOLE to COREHOLE none if compton calculation is done
                 if (do_compton) then
@@ -1071,8 +1089,9 @@
                else
                   call wlog('Attempt to enter funky lattice coordinates.')
             call wlog('Please stick to one of the formats described in the manual.')
-            call wlog('Exiting now.')
-            stop
+!                 feffjl Phase 3: record and unwind instead of `stop`.
+            call feff_abort('Invalid COORDINATES option - see the manual for the accepted formats.')
+            goto 400
                endif
 
             elseif (itok .eq. 74) then
@@ -1114,7 +1133,11 @@
              qn(1)=qvec(3) !norm
                      if (qvec(3).le.0.0d0) then
                         call wlog(' ERROR: momentum transfer negative or zero')
-                        call par_stop(' ')
+!                       feffjl Phase 3: record and unwind instead of par_stop.
+!                       This is the nq=1 branch; the nq>1 copy of the same check is
+!                       converted a few dozen lines below.
+                        call feff_abort('momentum transfer negative or zero in feff.inp')
+                        goto 400
                      end if
          else
                      read(words(3),*,err=900)  qvec(1)
@@ -1137,7 +1160,11 @@
           nwords=nwordx
           call bwords(line,nwords,words)
                   if (qaverage) then
-             if(nwords.lt.2) stop 'expecting "q qweight" in feff.inp'
+!            feffjl Phase 3: record and unwind instead of `stop`.
+             if(nwords.lt.2) then
+                call feff_abort('expecting "q qweight" in feff.inp')
+                goto 400
+             endif
 !                    just read one component, assume spherical averaging
                      read(words(1),*,err=900) qvec(3)
            read(words(2),*,err=900) dummy
@@ -1147,11 +1174,16 @@
                      qvec(1)=0.0d0
              qn(i)=qvec(3) !norm
                      if (qvec(3).le.0.0d0) then
-                        call wlog(' ERROR: momentum transfer negative or zero')
-                        call par_stop(' ')
+!                       feffjl Phase 3: record and unwind instead of par_stop.
+                        call feff_abort('momentum transfer negative or zero in feff.inp')
+                        goto 400
                      end if
                   else
-             if(nwords.lt.4) stop 'expecting "qx qy qz qweight" in feff.inp'
+!            feffjl Phase 3: record and unwind instead of `stop`.
+             if(nwords.lt.4) then
+                call feff_abort('expecting "qx qy qz qweight" in feff.inp')
+                goto 400
+             endif
                      read(words(1),*,err=900)  qvec(1)
                      read(words(2),*,err=900)  qvec(2)
                      read(words(3),*,err=900)  qvec(3)
@@ -1187,9 +1219,15 @@
 !           NUMDENS - set the number densities for creating loss.dat from database.
                read(words(2),20,err=900) iph
                IF(iph.gt.nphxhardlimit) then
-                  call wlog("iph > nphxhardlimit in feff.inp")
                   call wlog(TRIM(ADJUSTL(line)))
-                  call par_stop
+!                 feffjl Phase 3: was `call par_stop` with NO argument, though
+!                 PAR/sequential.src declares `character*(*) string` as mandatory
+!                 -- one of eight such sites in the tree (limitation 8 of the
+!                 Phase-2 document).  -std=legacy hid it, but the callee
+!                 unconditionally inspects `string`, so this would have read a
+!                 garbage descriptor on the way to reporting the real error.
+                  call feff_abort('iph > nphxhardlimit in feff.inp')
+                  goto 400
                END IF
                read(words(3),30) NumDens(iph)
             elseif (itok .eq. 85) then
@@ -1214,7 +1252,9 @@
                read(words(3),*,err=900) qqmdff
                read(words(4),*,err=900) cosmdff_dum
           else  !invalid syntax
-             stop "fatal error in feff.inp - expecting:   MDFF 2  q'  angle              or     MDFF 2"
+!            feffjl Phase 3: record and unwind instead of `stop`.
+             call feff_abort("fatal error in feff.inp - expecting:   MDFF 2  q'  angle              or     MDFF 2")
+             goto 400
           endif
          endif
          if(imdff.le.0) then
@@ -1256,7 +1296,9 @@
       elseif (itok .eq. 91) then
 !           SCREEN - pass on some options to the facultative screen.inp file
          if (nwords.lt.3) then
-            stop 'SCREEN card must be followed by precisely two arguments, e.g. "SCREEN rfms 5.5"'
+!           feffjl Phase 3: record and unwind instead of `stop`.
+            call feff_abort('SCREEN card must be followed by precisely two arguments, e.g. "SCREEN rfms 5.5"')
+            goto 400
          else
             str3=words(2)  !takes first 3 letters
           read(words(3),*) dummy
@@ -1265,7 +1307,11 @@
          endif
       elseif (itok .eq. 92) then
 !      CIF - read crystal structure from .cif file
-         if (nwords.lt.2) stop 'Error - CIF card must be followed by filename e.g. file.cif'
+!        feffjl Phase 3: record and unwind instead of `stop`.
+         if (nwords.lt.2) then
+            call feff_abort('Error - CIF card must be followed by filename e.g. file.cif')
+            goto 400
+         endif
          read(words(2),'(a)') cifname
          cifread=.true.
       elseif (itok .eq. 93) then
@@ -1372,7 +1418,11 @@
                if ( (iscfxc .ne. 11) .and. (iscfxc .ne.12) .and. (iscfxc .ne. 21) .and. (iscfxc .ne. 22) ) then
                   call wlog('Error: iscfxc should take one of the values &
                 11 for vBH, 12 for PZ, 21 for PDW, or 22 for KSDT ... stopping')
-                stop
+!                 feffjl Phase 3: the wlog above is left exactly as it was so the
+!                 human-visible diagnostic is unchanged; feff_abort carries a
+!                 one-line summary for the C caller, which has no log to read.
+                  call feff_abort('SCXC card: iscfxc must be 11, 12, 21 or 22')
+                  goto 400
                endif
       elseif (itok .eq. 108) then ! JK
               ! HIGHZ: Use finite nucleus to calculate atomic wavefunctions
@@ -1977,14 +2027,18 @@
        mixdff=.true.
     elseif(imdff.eq.1 .or. imdff.eq.2) then
        call wlog('ERROR - the selected MDFF option is only available with the NRIXS card.')
-     call par_stop('RDINP')
+!      feffjl Phase 3: record and unwind instead of par_stop.
+       call feff_abort('MDFF option requires the NRIXS card')
+       goto 400
     else
        mixdff=.false.
     endif
 
     if((imdff.eq.2).and.(nq.ne.2)) then
        call wlog("Current version of this type of MDFF calculation requires that you set nq=2 in the NRIXS card.")
-     call par_stop(" ")
+!      feffjl Phase 3: record and unwind instead of par_stop.
+       call feff_abort('imdff=2 requires nq=2 in the NRIXS card')
+       goto 400
       endif
     if((imdff.eq.2).and.((dabs(cosmdff_dum)-dble(1)).lt.0.01d0)) then
        call wlog("Just letting you know - you're calculating a DFF using' // &
@@ -2122,7 +2176,11 @@
          call wlog('ERROR -- HUBBARD calculation requires compiling code with nspx=2, but you have nspx < 2.')
          call wlog('(nspx is the number of spins)')
          call wlog('Quitting now.  Please recompile the code appropriately (ask the authors for help), or remove the HUBBARD card.')
-         stop
+!        feffjl Phase 3: wlog output unchanged; feff_abort summarizes for the ABI.
+!        Note this check sits after the card loop, so `goto 400` still reaches the
+!        same par_barrier/par_end teardown as the in-loop aborts.
+         call feff_abort('HUBBARD card requires the code compiled with nspx=2')
+         goto 400
       endif
 
 !     Set nspu to 1 (spin-averaged calculation) or 2 (spin-polarized calculation)
@@ -2327,6 +2385,12 @@
 
 !KJ   CHECK THAT NO INVALID COMBINATION OF CARDS IS USED :
       call consistency_checker(cards_set)
+!     feffjl Phase 3: consistency_checker used to `stop` on a bad card combination.
+!     It now records the failure and returns, so unwind here rather than carrying
+!     on and writing mod*.inp files for a configuration we already know is invalid.
+!     Jump to 400 (not a bare return) so par_barrier/par_end still run -- skipping
+!     them would leave the parallel state inconsistent for the next in-process run.
+      if (feff_failed()) goto 400
     if((cards_set(9) .and. rmax.gt.2.5d0) .and. (cards_set(37) .and. rfms2.gt.2.5d0)) &
        call wlog("WARNING  You are using RPATH and FMS.  This is syntactically permitted, but it's almost always a bad idea.")
 
@@ -2560,7 +2624,11 @@
       call par_end
 
 !     sub-program exchange
-      if(master)call WipeErrorfileAtFinish
+!     feffjl Phase 3: only wipe the errorfile if the stage actually succeeded.
+!     Wiping it is how a launcher (the JFEFF GUI, per ERRORMODS/m_errorfile.f90)
+!     learns the module finished cleanly, so wiping it after a failure would
+!     report success for a run that produced nothing.
+      if(master .and. .not.feff_failed()) call WipeErrorfileAtFinish
       return
 
 !     normal end of rdinp
@@ -2569,7 +2637,12 @@
       call wlog(' Error reading input, bad line follows:')
       write(slog,'(1x,a)') line(1:71)
       call wlog(slog)
-      call par_stop('RDINP fatal error.')
+!     feffjl Phase 3: was `call par_stop('RDINP fatal error.')`, which terminates
+!     the process.  This is the target of every `err=900` in the card parsing
+!     below, so it is the single highest-traffic fatal path in rdinp -- any
+!     malformed number in any card lands here.  Record and unwind instead.
+      call feff_abort('RDINP fatal error - could not parse feff.inp: ' // line(1:71))
+      goto 400
 
       end subroutine feff_rdinp
 

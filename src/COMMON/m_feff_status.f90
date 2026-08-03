@@ -103,6 +103,24 @@
       return
       end subroutine feff_abort_code
 
+!     Record an explanatory message WITHOUT marking the run as failed.
+!
+!     feffjl Phase 4 step 3.  feff_get_npaths_stored() returning 0 is a legitimate
+!     answer, not an error -- a caller is allowed to ask "do you have per-path
+!     data?" and be told no -- but "0" alone does not distinguish "no run has
+!     happened" from "the run did not have PRINT field 6 set".  So the message is
+!     set and the code is left alone: a caller checking availability does not have
+!     to clear a phantom failure afterwards, and feff_last_error still explains.
+!
+!     Only writes when nothing has failed yet, for the same first-abort-wins reason
+!     as feff_abort_code: a note must never overwrite the diagnosis of a real
+!     failure.  Does not print -- unlike an abort, this is not news.
+      subroutine feff_status_note(message)
+      character*(*), intent(in) :: message
+      if (err_code .eq. FEFF_OK) err_msg = message
+      return
+      end subroutine feff_status_note
+
       logical function feff_failed()
       feff_failed = (err_code .ne. FEFF_OK)
       return

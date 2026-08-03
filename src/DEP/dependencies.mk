@@ -153,7 +153,7 @@
 ./EXCH/xcpot.o: ./IOMODS/m_iomod.o ./COMMON/m_dimsmod.o ./COMMON/m_constants.o Compiler.mk
 ./FF2X/dwaddl.o: ./COMMON/m_constants.o ./COMMON/m_dimsmod.o Compiler.mk
 ./FF2X/exconv.o: Compiler.mk
-./FF2X/feffdt.o: ./COMMON/m_dimsmod.o ./COMMON/m_constants.o ./HEADERS/vers.h Compiler.mk
+./FF2X/feffdt.o: ./COMMON/m_dimsmod.o ./COMMON/m_constants.o ./COMMON/m_feff_results.o ./HEADERS/vers.h Compiler.mk
 ./FF2X/ff2afs.o: ./COMMON/m_dimsmod.o ./COMMON/m_constants.o Compiler.mk
 ./FF2X/ff2afsjas.o: ./COMMON/m_dimsmod.o ./COMMON/m_constants.o Compiler.mk
 ./FF2X/ff2chi.o: ./COMMON/m_dimsmod.o ./COMMON/m_constants.o ./COMMON/m_feff_results.o Compiler.mk

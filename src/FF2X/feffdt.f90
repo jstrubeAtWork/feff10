@@ -15,6 +15,12 @@
 !
       use dimsmod, only: npx=>npx_ff2x, nheadx, nex, nphx=>nphu, legtot
 	  use constants
+!     feffjl Phase 4 step 3: capture the per-path data as it is written, for the
+!     C ABI's feff_get_path_* getters.  Storage only -- no iso_c_binding here, so
+!     the standalone executables still compile unchanged (see m_feff_results.f90).
+      use feff_results, only: feff_results_alloc_paths,                  &
+     &     feff_results_store_path_info, feff_results_store_path_leg,    &
+     &     feff_results_store_path_row, feff_results_done_paths
       implicit double precision (a-h, o-z)
 
       include '../HEADERS/vers.h'
@@ -64,6 +70,13 @@
       write(slog,60)  nptot
    60 format (i8, ' paths to process')
       call wlog (slog)
+
+!     Size the per-path capture buffers before the write loop.  ntotal, not nptot:
+!     the loop below runs over list.dat's paths (ilist = 1, ntotal) and writes one
+!     feffNNNN.dat each, so ntotal is the number of paths that will be stored.
+!     `ne` here is ff2chi's ne1, the genfmt energy grid -- not chi.dat's fine grid,
+!     which is why the per-path getters carry their own length.
+      call feff_results_alloc_paths(ne, ntotal, legtot)
 
 !     make files.dat
   150 format (a)
@@ -128,6 +141,24 @@
      &                 edge*hart
   320    format (1x, i3, f8.3, f9.4, f10.4, f11.5,                      &
      &           ' nleg, deg, reff, rnrmav(bohr), edge')
+!        Capture this path's header scalars.  Stored at ilist, the position in
+!        list.dat / write order, with index(ip) kept as the path's own id -- the
+!        two differ, and a caller correlating with files.dat needs the id.  reff is
+!        stored already scaled by bohr, matching the file's units rather than
+!        feff.bin's.
+         call feff_results_store_path_info(ilist, index(ip), nleg(ip),   &
+     &        dble(deg(ip)), dble(reff(ip))*bohr, dble(crit(ip)))
+
+!        Legs, stored under their own rat index rather than in the order the file
+!        prints them -- feffNNNN.dat writes the absorbing atom (leg nleg) first and
+!        then legs 1..nleg-1, which is a presentation choice; a caller wants
+!        rat(:,ileg) to mean what it means everywhere else in FEFF.
+         do 365 ileg = 1, nleg(ip)
+            call feff_results_store_path_leg(ilist, ileg,                &
+     &           dble(rat(1,ileg,ip))*bohr, dble(rat(2,ileg,ip))*bohr,   &
+     &           dble(rat(3,ileg,ip))*bohr, ipot(ileg,ip))
+  365    continue
+
          write(3,330)
   330    format ('        x         y         z   pot at#')
          write(3,340)  (rat(j,nleg(ip),ip)*bohr,j=1,3),                 &
@@ -190,12 +221,31 @@
   400       format (1x, f6.3, 1x, 3(1pe11.4,1x),1pe10.3,1x,             &
      &                            2(1pe11.4,1x))
 
+!           The same seven expressions the write statement above just formatted,
+!           in the same order.  Written as a second statement rather than via
+!           temporaries so the two cannot drift apart silently: if a column's
+!           expression is ever changed, the diff shows both lines side by side.
+!           Note phff/cdelt are used here BEFORE the phffo/cdelto assignment below
+!           updates them for the next iteration -- same values the file gets.
+            call feff_results_store_path_row(ilist, ie,                  &
+     &         xk(ie)/bohr,                                              &
+     &         cdelt + l0*pi,                                            &
+     &         abs(cfms) * bohr,                                         &
+     &         phff - cdelt - l0*pi,                                     &
+     &         dble(redfac),                                             &
+     &         xlam * bohr,                                              &
+     &         dble(ck(ie))/bohr)
+
   450    continue
 
 !        Done with feff.dat
          close (unit=3)
   500 continue
       close (unit=2)
+
+!     Only now, once every path has been written: the flag says "complete", so a
+!     run that died partway through the loop above must not set it.
+      call feff_results_done_paths(ne, ntotal)
 
       return
       end

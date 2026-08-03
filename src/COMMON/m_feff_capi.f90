@@ -66,6 +66,7 @@
       use iso_c_binding
       use feff_status, only: feff_status_clear, feff_status_code,        &
      &     feff_status_message, feff_abort_code, feff_failed,            &
+     &     feff_status_note,                                            &
      &     FEFF_OK, FEFF_ERR_WORKDIR, FEFF_ERR_NODATA, FEFF_ERR_BUFFER
       use feff_results
 
@@ -80,7 +81,13 @@
 !     the same identifier as the feff_abi_version() function below and gfortran
 !     rejects the module outright ("has an explicit interface from a previous
 !     declaration").
-      integer(c_int), parameter :: abi_version_number = 1
+!     2 (Phase 4 step 3): added feff_get_npaths_stored, feff_get_path_ne,
+!       feff_get_path_info, feff_get_path_rat, feff_get_path_columns.  Purely
+!       additive -- every version-1 entry point keeps its signature and meaning --
+!       but bumped anyway, because a caller compiled against 2 and loading a
+!       version-1 library would find the new symbols missing, and a link error at
+!       first call is a worse diagnosis than a version check at load.
+      integer(c_int), parameter :: abi_version_number = 2
 
 !     Longest path feff_exafs_run will accept.  PATH_MAX on Linux is 4096; this is
 !     the buffer the C string is copied into before being handed to chdir.
@@ -334,9 +341,284 @@
       return
       end function feff_get_xmu_c
 
+!-----------------------------------------------------------------------
+!     Per-path getters (feffNNNN.dat).  feffjl Phase 4 step 3.
+!
+!     These exist because the consumer of this ABI reconstructs chi(k) per path
+!     rather than re-running FEFF: it needs reff/deg/nleg/rat plus the seven
+!     columns, and today it gets them by parsing feffNNNN.dat off disk.
+!
+!     Two properties a caller must know, both documented at length in
+!     m_feff_results.f90 and repeated in gates/feff.h:
+!
+!       * The values carry only ~7 significant figures of ACCURACY.  feff.bin's
+!         round trip (rdfbin.f90:89 reads `real achi`) rounds the input to single
+!         before feffdt sees it.  The stored numbers are still genuine doubles --
+!         feffdt does double arithmetic on them, so they do not round-trip through
+!         float32 -- but ~1e-7 relative is the honest error bar, not the
+!         full-double property feff_get_chi/feff_get_xmu have.
+!       * The amplitudes are PRE-Debye-Waller and PRE-s02, because feffdt runs
+!         before dwadd.  That is what a caller applying its own s02/sigma2/degen
+!         wants.
+!
+!     AVAILABILITY IS REPORTED, NOT FORCED.  feffdt is only called when ipr6 >= 3
+!     (ff2chi.f90:171, fed from the 6th PRINT field -- the *sixth*, despite the
+!     variable being spelled ipr4 in ff2chi's argument list, because ff2x.f90:81
+!     passes ipr6 into that dummy).  The ABI deliberately does not set the flag
+!     behind the caller's back: that would change which files land in the working
+!     directory and make a getter's availability depend on something never asked
+!     for.  Instead feff_get_npaths_stored() returns 0 and feff_last_error says why.
+!-----------------------------------------------------------------------
+
+!-----------------------------------------------------------------------
+!     int feff_get_npaths_stored(void);
+!
+!     Number of paths whose per-path data was captured, i.e. the valid range of the
+!     `ip` argument below (1-based).  0 means no per-path data: either no run has
+!     completed ff2x, or the run did not have PRINT flag 6 >= 3.  Sets the error
+!     message to whichever it was, so a caller can tell them apart.
+!-----------------------------------------------------------------------
+      function feff_get_npaths_stored_c()                                &
+     &         bind(c, name='feff_get_npaths_stored') result(n)
+      integer(c_int) :: n
+
+      n = 0
+      if (res_have_paths) then
+         n = int(res_npaths_stored, c_int)
+         return
+      endif
+
+!     Not an abort -- 0 is a legitimate answer to "how many paths do you have",
+!     and a caller checking availability should not have to clear a failed status
+!     afterwards.  But the message is set, because "0" alone does not say which of
+!     the two causes applies.
+      if (res_nk .le. 0) then
+         call feff_status_note(                                          &
+     &        'no per-path data: no run has completed ff2x in this process')
+      else
+         call feff_status_note(                                          &
+     &        'no per-path data: feffdt did not run; set PRINT field 6 to 3 or 4')
+      endif
+
+      return
+      end function feff_get_npaths_stored_c
+
+!-----------------------------------------------------------------------
+!     int feff_get_path_ne(void);
+!
+!     Length of the per-path columns -- the n to pass to feff_get_path_columns.
+!
+!     This is NOT feff_get_nk().  The per-path data is on genfmt's energy grid
+!     (ff2chi's ne1) while chi.dat is on the interpolated fine grid; on the cu
+!     fixture that is 63 versus 401.  A caller that reused nk here would ask for
+!     six times the data that exists, which is exactly the buffer-size confusion
+!     the separate getter prevents.
+!-----------------------------------------------------------------------
+      function feff_get_path_ne_c() bind(c, name='feff_get_path_ne')     &
+     &         result(n)
+      integer(c_int) :: n
+      n = 0
+      if (res_have_paths) n = int(res_pne, c_int)
+      return
+      end function feff_get_path_ne_c
+
+!-----------------------------------------------------------------------
+!     int feff_get_path_info(int ip, int *index, int *nleg,
+!                            double *deg, double *reff, double *crit);
+!
+!     One path's header scalars.  ip is 1-based and is the path's position in write
+!     order; *index is the NNNN in feffNNNN.dat, which is the path's own id and is
+!     a different number.  reff is in Angstrom.  Any pointer may be NULL.
+!
+!     Returns FEFF_OK, or a negative FEFF_ERR_* -- -FEFF_ERR_NODATA if there is no
+!     per-path data, -FEFF_ERR_BUFFER if ip is out of range.  An out-of-range index
+!     is a buffer error rather than a silent zero for the same reason a short array
+!     is: it is a caller bug, and returning plausible zeros hides it.
+!-----------------------------------------------------------------------
+      function feff_get_path_info_c(ip, idx, nleg, deg, reff, crit)      &
+     &         bind(c, name='feff_get_path_info') result(rc)
+      integer(c_int), value, intent(in) :: ip
+      type(c_ptr), value, intent(in) :: idx, nleg, deg, reff, crit
+      integer(c_int) :: rc
+
+      rc = check_path_getter(ip)
+      if (rc .lt. 0) return
+
+      call copy_out_int(idx,  res_pindex(ip))
+      call copy_out_int(nleg, res_pnleg(ip))
+      call copy_out_one(deg,  res_pdeg(ip))
+      call copy_out_one(reff, res_preff(ip))
+      call copy_out_one(crit, res_pcrit(ip))
+
+      rc = int(FEFF_OK, c_int)
+      return
+      end function feff_get_path_info_c
+
+!-----------------------------------------------------------------------
+!     int feff_get_path_rat(int ip, double *rat, int *ipot, int nleg);
+!
+!     Leg coordinates for path ip, in Angstrom, written as 3*nleg doubles in
+!     column-major (x,y,z) per leg -- i.e. rat[3*(ileg-1)+0..2], which is the same
+!     memory layout a Fortran rat(3,nleg) has and what Julia reshapes to (3,nleg)
+!     with no permutedims.
+!
+!     ipot receives nleg potential indices.  Either pointer may be NULL.
+!
+!     nleg must be at least the path's own nleg (from feff_get_path_info); short
+!     is refused with -FEFF_ERR_BUFFER and nothing is written.  Legs are indexed as
+!     FEFF indexes them, NOT in feffNNNN.dat's print order -- the file prints the
+!     absorbing atom (leg nleg) first and then legs 1..nleg-1, which is a
+!     presentation choice this getter does not reproduce.  Returns the number of
+!     legs written, or a negative FEFF_ERR_*.
+!-----------------------------------------------------------------------
+      function feff_get_path_rat_c(ip, rat, ipotout, nleg)               &
+     &         bind(c, name='feff_get_path_rat') result(nw)
+      integer(c_int), value, intent(in) :: ip, nleg
+      type(c_ptr), value, intent(in) :: rat, ipotout
+      integer(c_int) :: nw
+
+      real(c_double), pointer :: p(:)
+      integer(c_int), pointer :: q(:)
+      integer :: nl, ileg, j
+
+      nw = check_path_getter(ip)
+      if (nw .lt. 0) return
+
+      nl = res_pnleg(ip)
+      if (nl .lt. 1 .or. nl .gt. res_plegtot) then
+         call feff_abort_code(FEFF_ERR_NODATA,                           &
+     &        'stored path has a nonsensical leg count')
+         nw = -int(FEFF_ERR_NODATA, c_int)
+         return
+      endif
+
+      if (nleg .lt. nl) then
+         call feff_abort_code(FEFF_ERR_BUFFER,                           &
+     &        'caller buffer too small for this path''s legs; ' //       &
+     &        'call feff_get_path_info first')
+         nw = -int(FEFF_ERR_BUFFER, c_int)
+         return
+      endif
+
+      if (c_associated(rat)) then
+         call c_f_pointer(rat, p, [3*nl])
+         do ileg = 1, nl
+            do j = 1, 3
+               p(3*(ileg-1) + j) = res_prat(j,ileg,ip)
+            enddo
+         enddo
+      endif
+
+      if (c_associated(ipotout)) then
+         call c_f_pointer(ipotout, q, [nl])
+         do ileg = 1, nl
+            q(ileg) = int(res_pipot(ileg,ip), c_int)
+         enddo
+      endif
+
+      nw = int(nl, c_int)
+      return
+      end function feff_get_path_rat_c
+
+!-----------------------------------------------------------------------
+!     int feff_get_path_columns(int ip, double *k, double *phc, double *mag,
+!                               double *phase, double *redfac, double *lambda,
+!                               double *realp, int n);
+!
+!     feffNNNN.dat's seven columns for path ip, in file order:
+!       k [1/Ang], real[2*phc], mag[feff], phase[feff], red factor,
+!       lambda [Ang], real[p] [1/Ang].
+!
+!     Same conventions as feff_get_chi: any pointer may be NULL to skip that
+!     column, n must be at least feff_get_path_ne(), and a short n is refused with
+!     -FEFF_ERR_BUFFER having written nothing.  Returns the number of points
+!     written.
+!-----------------------------------------------------------------------
+      function feff_get_path_columns_c(ip, k, phc, mag, phase, redfac,   &
+     &         xlambda, realp, n)                                        &
+     &         bind(c, name='feff_get_path_columns') result(nw)
+      integer(c_int), value, intent(in) :: ip, n
+      type(c_ptr), value, intent(in) :: k, phc, mag, phase, redfac,      &
+     &     xlambda, realp
+      integer(c_int) :: nw
+
+      nw = check_path_getter(ip)
+      if (nw .lt. 0) return
+
+      if (n .lt. res_pne) then
+         call feff_abort_code(FEFF_ERR_BUFFER,                           &
+     &        'caller buffer too small for the path columns; ' //        &
+     &        'call feff_get_path_ne first')
+         nw = -int(FEFF_ERR_BUFFER, c_int)
+         return
+      endif
+
+      call copy_out(k,       res_pk(:,ip),      res_pne)
+      call copy_out(phc,     res_pphc(:,ip),    res_pne)
+      call copy_out(mag,     res_pmag(:,ip),    res_pne)
+      call copy_out(phase,   res_pphase(:,ip),  res_pne)
+      call copy_out(redfac,  res_predfac(:,ip), res_pne)
+      call copy_out(xlambda, res_plambda(:,ip), res_pne)
+      call copy_out(realp,   res_prealp(:,ip),  res_pne)
+
+      nw = int(res_pne, c_int)
+      return
+      end function feff_get_path_columns_c
+
 !=======================================================================
 !     Internals.  Not bind(c) and not exported as API.
 !=======================================================================
+
+!     Shared precondition check for the per-path getters: data present, ip in
+!     range.  Mirrors check_getter's contract -- negative return, -code is the
+!     reason.
+      function check_path_getter(ip) result(rc)
+      integer(c_int), intent(in) :: ip
+      integer(c_int) :: rc
+
+      if (.not. res_have_paths .or. res_npaths_stored .le. 0 .or.        &
+     &    res_pne .le. 0) then
+         call feff_abort_code(FEFF_ERR_NODATA,                           &
+     &        'no per-path data: feffdt did not run ' //                 &
+     &        '(set PRINT field 6 to 3 or 4), or no run completed ff2x')
+         rc = -int(FEFF_ERR_NODATA, c_int)
+         return
+      endif
+
+      if (ip .lt. 1 .or. ip .gt. res_npaths_stored) then
+         call feff_abort_code(FEFF_ERR_BUFFER,                           &
+     &        'path index out of range; valid range is 1..' //           &
+     &        'feff_get_npaths_stored()')
+         rc = -int(FEFF_ERR_BUFFER, c_int)
+         return
+      endif
+
+      rc = 0
+      return
+      end function check_path_getter
+
+!     Copy a single double / int out, skipping NULL.  Separate from copy_out
+!     because the scalar getters hand back one value per pointer rather than an
+!     array, and reusing copy_out would mean building a size-1 array per call.
+      subroutine copy_out_one(dst, val)
+      type(c_ptr), value, intent(in) :: dst
+      real*8, intent(in) :: val
+      real(c_double), pointer :: p
+      if (.not. c_associated(dst)) return
+      call c_f_pointer(dst, p)
+      p = val
+      return
+      end subroutine copy_out_one
+
+      subroutine copy_out_int(dst, val)
+      type(c_ptr), value, intent(in) :: dst
+      integer, intent(in) :: val
+      integer(c_int), pointer :: p
+      if (.not. c_associated(dst)) return
+      call c_f_pointer(dst, p)
+      p = int(val, c_int)
+      return
+      end subroutine copy_out_int
 
 !     Shared precondition check for the getters.  Returns a negative code, so a
 !     caller can treat "< 0" as failure and -code as the reason.

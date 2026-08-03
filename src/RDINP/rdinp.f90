@@ -2258,6 +2258,42 @@
       do 352 iph = 0,nph
   352 xnat = xnat + xnatph(iph)
 
+!     Resolve the absorbing atom's index BEFORE the natt branch below.
+!
+!     feffjl Phase 4: this used to be resolved, and guarded, only inside the
+!     natt.ge.2 branch -- but iatabs is used unconditionally further down, at the
+!     nclusx loop's dist(ratx(:,iat), ratx(:,iatabs)).  With a single atom
+!     (natt.lt.2) the else branch never ran, so iatabs was never assigned and that
+!     dist() call indexed ratx with whatever was on the stack.  The par_stop guard
+!     below was already there and already correct; it was simply unreachable on
+!     the one path that needed it, so a single-atom feff.inp segfaulted inside
+!     dist_ instead of being told what was wrong.
+!
+!     That made it undefined behaviour rather than a deliberate exit, which is why
+!     it appears in neither column of PHASE3_STATUS_AND_PLAN.md's containment
+!     table: converting stop sites cannot contain a crash that never reaches one.
+!     In the standalone executables it was mostly survivable-by-luck -- stack
+!     garbage that happened to index within ratx gives a wrong ratmin rather than a
+!     fault -- which is the usual reason this class of bug goes unnoticed until the
+!     code is called in-process, where the caller's stack contents differ.
+!
+!     The observed crash was 3/3 on a one-atom fixture and 0/3 on a two-atom one,
+!     matching the natt prediction exactly.  It is not reproducible on demand,
+!     though: a library rebuilt from the pre-fix source reaches FRNRM at -O0, at
+!     -O2, and with -finit-integer=1000000.  The original repro needed a particular
+!     calling sequence (feff_last_error plus a second feff_exafs_run in the same
+!     process) to lay out the stack that way.  That is characteristic of an
+!     uninitialized read, so the justification here rests on the static fact --
+!     iatabs was read while unassigned -- not on a crash that can be re-triggered.
+!
+!     Hoisting the resolution rather than initializing iatabs at its declaration:
+!     a default of 0 or 1 would make the guard pass on garbage and silently treat
+!     an arbitrary atom as the absorber, trading a loud crash for a quiet wrong
+!     answer. Hoisting keeps the existing diagnosis and just makes it reachable.
+      iatabs = iatph(0)
+      if (iatabs.le.0) iatabs = iatph( iphabs)
+      if (iatabs.le.0) call par_stop('RDINP fatal error: iatabs=NaN')
+
 !     Find distance to nearest and most distant atom (use overlap card
 !     if no atoms specified.)
       if (natt .lt. 2)  then
@@ -2266,10 +2302,7 @@
       else
          ratmax = 0
          ratmin = 1.0e10
-         iatabs = iatph(0)
          icount = 0
-         if (iatabs.le.0) iatabs = iatph( iphabs)
-         if (iatabs.le.0) call par_stop('RDINP fatal error: iatabs=NaN')
 
          do 412  iat = 1, natt
            if (iphatx(iat) .eq. iphabs .or. iphatx(iat).eq.0)  icount = icount +1

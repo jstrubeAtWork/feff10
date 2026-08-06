@@ -87,7 +87,12 @@
 !       but bumped anyway, because a caller compiled against 2 and loading a
 !       version-1 library would find the new symbols missing, and a link error at
 !       first call is a worse diagnosis than a version check at load.
-      integer(c_int), parameter :: abi_version_number = 2
+!     3 (Phase 5): added feff_set_write_path_files, feff_get_write_path_files.
+!       Additive in the same sense as 2, and the default preserves stock behaviour
+!       (files are written unless a caller opts out), so a version-2 caller against
+!       a version-3 library behaves identically.  Bumped for the same reason: a
+!       version-3 caller against a version-2 library would miss the symbols.
+      integer(c_int), parameter :: abi_version_number = 3
 
 !     Longest path feff_exafs_run will accept.  PATH_MAX on Linux is 4096; this is
 !     the buffer the C string is copied into before being handed to chdir.
@@ -564,6 +569,51 @@
       nw = int(res_pne, c_int)
       return
       end function feff_get_path_columns_c
+
+!-----------------------------------------------------------------------
+!     void feff_set_write_path_files(int on);
+!
+!     Ask feffdt to write feffNNNN.dat and files.dat (on /= 0, the default) or to
+!     capture the per-path data without writing anything (on == 0).
+!
+!     This is a caller preference and NOT part of the run results, so it survives
+!     feff_exafs_run's clear-at-start and stays in effect until changed or the
+!     process exits.  Setting it does not need a run to have happened.
+!
+!     Turning writing off does not change any captured value: feffdt computes every
+!     column and calls the store routines either way, so the getters return the
+!     same numbers with or without files on disk.  That equality is what makes the
+!     flag safe to flip in a fitting loop, and it is asserted rather than assumed.
+!
+!     No status code: there is nothing to fail.  A void return also means a caller
+!     linked against a version-2 library gets a link error at the call rather than
+!     a plausible-looking status it might ignore.
+!-----------------------------------------------------------------------
+      subroutine feff_set_write_path_files_c(on)                         &
+     &         bind(c, name='feff_set_write_path_files')
+      integer(c_int), value, intent(in) :: on
+      call feff_results_set_write_path_files(on .ne. 0_c_int)
+      return
+      end subroutine feff_set_write_path_files_c
+
+!-----------------------------------------------------------------------
+!     int feff_get_write_path_files(void);
+!
+!     1 when feffdt will write its files, 0 when it will only capture.  Reads the
+!     library's own state rather than echoing the caller's last argument, so a
+!     host talking to a stale libfeff.so finds out here instead of by wondering
+!     why the files it asked to suppress are still on disk.
+!-----------------------------------------------------------------------
+      function feff_get_write_path_files_c()                             &
+     &         bind(c, name='feff_get_write_path_files') result(on)
+      integer(c_int) :: on
+      if (feff_results_get_write_path_files()) then
+         on = 1_c_int
+      else
+         on = 0_c_int
+      endif
+      return
+      end function feff_get_write_path_files_c
 
 !=======================================================================
 !     Internals.  Not bind(c) and not exported as API.

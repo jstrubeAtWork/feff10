@@ -154,6 +154,27 @@
 !     complete.
       logical :: res_have_paths = .false.
 
+!     Whether feffdt writes feffNNNN.dat and files.dat, as opposed to only
+!     capturing the same numbers into the buffers above.  feffjl Phase 5.
+!
+!     Default .true., which is stock behaviour: the standalone executables and
+!     every existing caller keep writing the files, so this is opt-out rather than
+!     opt-in and no gate or golden set changes meaning by its existence.
+!
+!     A fit that re-runs FEFF per iteration reads the per-path data through the
+!     getters and never opens the files, so writing them is pure I/O -- 15 files
+!     per iteration on the cu fixture, and on a ligand template with a few hundred
+!     paths it dominates the FF2X stage.  Turning it off is what makes "no
+!     feffNNNN.dat on disk" a property of the run rather than of a cleanup step.
+!
+!     Deliberately NOT cleared by feff_results_clear.  This is a caller
+!     preference, not a result: feff_exafs_run clears results at the START of every
+!     run, so a flag living in that set would be silently reset to .true. between
+!     the caller setting it and feffdt reading it.  The capture buffers are results
+!     and are cleared; this is configuration and persists until the caller changes
+!     it or the process ends.
+      logical :: res_write_path_files = .true.
+
       contains
 
 !     Size the buffers for n fine-grid points.  Extent test then deallocate, the
@@ -401,5 +422,24 @@
       res_have_paths = .true.
       return
       end subroutine feff_results_done_paths
+
+!     Whether feffdt writes its files, as opposed to only capturing them.  A
+!     setter rather than direct assignment from the C ABI, so `use feff_results,
+!     only:` lists stay explicit about what each caller touches and the flag's
+!     declaration comment remains the single place its semantics are stated.
+      subroutine feff_results_set_write_path_files(on)
+      logical, intent(in) :: on
+      res_write_path_files = on
+      return
+      end subroutine feff_results_set_write_path_files
+
+!     Reads back what the setter set.  Exists so the ABI getter reports the flag
+!     the library will actually act on rather than what the caller believes it
+!     set -- a distinction that matters because the two live in different
+!     translation units and a stale libfeff would otherwise answer plausibly.
+      logical function feff_results_get_write_path_files()
+      feff_results_get_write_path_files = res_write_path_files
+      return
+      end function feff_results_get_write_path_files
 
       end module feff_results
